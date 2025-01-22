@@ -1,31 +1,40 @@
 // src/components/Sidebar.tsx
-import React from 'react';
 
-export interface SidebarItem {
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+
+interface SidebarItem {
   key: string;
   label: string;
+  path: string;
 }
 
-export interface SidebarProps {
+interface SidebarProps {
   items: SidebarItem[];
-  activeKey: string;
-  onSelect: (key: string) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ items, activeKey, onSelect }) => {
+const Sidebar: React.FC<SidebarProps> = ({ items }) => {
   return (
-    <div className="group fixed top-0 left-0 h-screen w-12 hover:w-64 bg-gray-100 overflow-hidden transition-all duration-300 shadow-md z-50">
-      {items.map((item) => (
-        <div
-          key={item.key}
-          onClick={() => onSelect(item.key)}
-          className={`p-2 my-1 cursor-pointer rounded hover:bg-gray-300 transition-colors duration-300 ${activeKey === item.key ? 'bg-gray-400 font-bold' : ''}`}
-        >
-          <span className="text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            {item.label}
-          </span>
-        </div>
-      ))}
+    <div className="w-60 bg-gray-800 text-white flex flex-col fixed h-full overflow-y-auto">
+      <h1 className="text-2xl font-bold p-4">Dashboard</h1>
+      <nav className="flex-1">
+        <ul>
+          {items.map((item) => (
+            <li key={item.key}>
+              <NavLink
+                to={item.path}
+                className={({ isActive }) =>
+                  `block py-2 px-4 hover:bg-gray-700 ${
+                    isActive ? 'bg-gray-700' : ''
+                  }`
+                }
+              >
+                {item.label}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </nav>
     </div>
   );
 };

@@ -1,42 +1,40 @@
-// src/components/GmmClusteringChart.tsx
+// src/components/KMeansClusteringChart.tsx
 import * as d3 from 'd3';
-import * as numeric from 'numeric';
 import React, { useEffect, useRef } from 'react';
 
-import { useFetchGmmClusteringMutation } from '@/services/api';
+import { useFetchKMeansClusteringMutation } from '@/services/clusteringApi';
 
-interface GmmClusteringChartProps {
-  nComponents: number;
-  covarianceType: string;
+interface KMeansClusteringChartProps {
+  nClusters: number;
+  nCenters: number;
   randomState: number;
   nSamples: number;
   nFeatures: number;
 }
 
-const GmmClusteringChart: React.FC<GmmClusteringChartProps> = ({
-  nComponents,
-  covarianceType,
+const KMeansClusteringChart: React.FC<KMeansClusteringChartProps> = ({
+  nClusters,
+  nCenters,
   randomState,
   nSamples,
   nFeatures,
 }) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const [fetchGmmClustering, { data, isLoading, isError }] =
-    useFetchGmmClusteringMutation();
+  const [fetchKMeansClustering, { data, isLoading, isError }] =
+    useFetchKMeansClusteringMutation();
 
-  // Llamar al backend cuando los parámetros cambien
   useEffect(() => {
-    fetchGmmClustering({
-      n_components: nComponents,
-      covariance_type: covarianceType,
+    fetchKMeansClustering({
+      n_clusters: nClusters,
+      n_centers: nCenters,
       random_state: randomState,
       n_samples: nSamples,
       n_features: nFeatures,
     });
   }, [
-    fetchGmmClustering,
-    nComponents,
-    covarianceType,
+    fetchKMeansClustering,
+    nClusters,
+    nCenters,
     randomState,
     nSamples,
     nFeatures,
@@ -44,24 +42,20 @@ const GmmClusteringChart: React.FC<GmmClusteringChartProps> = ({
 
   useEffect(() => {
     if (data && svgRef.current && nFeatures === 2) {
-      // Dimensiones del gráfico
       const width = 800;
       const height = 600;
       const margin = { top: 50, right: 50, bottom: 70, left: 70 };
 
-      // Mapear los datos
       const points = data.data.map((point, i) => ({
         x: point[0],
         y: point[1],
         cluster: data.clusters[i],
       }));
 
-      // Crear o limpiar el SVG
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
       svg.attr('width', width).attr('height', height);
 
-      // Escalas
       const xExtent = d3.extent(points, (d) => d.x) as [number, number];
       const yExtent = d3.extent(points, (d) => d.y) as [number, number];
 
@@ -69,13 +63,11 @@ const GmmClusteringChart: React.FC<GmmClusteringChartProps> = ({
         .scaleLinear()
         .domain([xExtent[0], xExtent[1]])
         .range([margin.left, width - margin.right]);
-
       const yScale = d3
         .scaleLinear()
         .domain([yExtent[0], yExtent[1]])
         .range([height - margin.bottom, margin.top]);
 
-      // Crear tooltip
       const tooltip = d3
         .select('body')
         .append('div')
@@ -87,7 +79,6 @@ const GmmClusteringChart: React.FC<GmmClusteringChartProps> = ({
         .style('pointer-events', 'none')
         .style('opacity', 0);
 
-      // Dibujar puntos
       const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
       svg
         .selectAll('circle')
@@ -99,18 +90,9 @@ const GmmClusteringChart: React.FC<GmmClusteringChartProps> = ({
         .attr('r', 5)
         .attr('fill', (d) => colorScale(String(d.cluster)))
         .on('mouseover', (event, d) => {
-          // Mostrar el tooltip con las probabilidades
-          const probabilities = data.probabilities[points.indexOf(d)];
-          const probText = probabilities
-            .map(
-              (p: number, idx: number) =>
-                `Cluster ${idx}: ${(p * 100).toFixed(2)}%`
-            )
-            .join('<br>');
-
           tooltip.transition().duration(200).style('opacity', 0.9);
           tooltip
-            .html(`<strong>Probabilidades:</strong><br>${probText}`)
+            .html(`Cluster: ${d.cluster}`)
             .style('left', event.pageX + 10 + 'px')
             .style('top', event.pageY - 28 + 'px');
         })
@@ -123,80 +105,72 @@ const GmmClusteringChart: React.FC<GmmClusteringChartProps> = ({
           tooltip.transition().duration(500).style('opacity', 0);
         });
 
-      // Dibujar elipses para cada cluster
-      data.means.forEach((mean, idx) => {
-        const cov = data.covariances[idx];
-
-        // (Opcional) Verificar que sea cuadrada
-        if (cov.length !== cov[0].length) {
-          console.error(`La matriz de covarianza no es cuadrada:`, cov);
-          return; // Saltar esta matriz
-        }
-
-        const eig = numeric.eig(cov);
-        const eigenValues = eig.lambda.x as number[];
-        const eigenVectors = eig.E.x as number[][];
-
-        const angle = Math.atan2(eigenVectors[0][1], eigenVectors[0][0]);
-        const rx = Math.sqrt(eigenValues[0]);
-        const ry = Math.sqrt(eigenValues[1]);
-
+      if (data.centers) {
         svg
-          .append('ellipse')
-          .attr('cx', xScale(mean[0]))
-          .attr('cy', yScale(mean[1]))
-          .attr('rx', rx * xScale(1))
-          .attr('ry', ry * yScale(1))
-          .attr(
-            'transform',
-            `rotate(${(angle * 180) / Math.PI}, ${xScale(mean[0])}, ${yScale(mean[1])})`
-          )
-          .style('fill', colorScale(String(idx)))
-          .style('fill-opacity', 0.2)
-          .style('stroke', colorScale(String(idx)))
-          .style('stroke-width', 1.5);
-      });
+          .selectAll('rect')
+          .data(data.centers)
+          .enter()
+          .append('rect')
+          .attr('x', (center: number[]) => xScale(center[0]) - 6)
+          .attr('y', (center: number[]) => yScale(center[1]) - 6)
+          .attr('width', 12)
+          .attr('height', 12)
+          .attr('fill', (d, i) => colorScale(String(i)))
+          .attr('stroke', '#000')
+          .attr('stroke-width', 1.5)
+          .style('pointer-events', 'none');
+      }
 
-      // Cleanup del tooltip al desmontar el componente
       return () => {
         tooltip.remove();
       };
     }
-  }, [data]);
+  }, [data, nFeatures]);
 
   return (
     <div className="p-4 bg-white shadow rounded">
-      <h2 className="text-xl font-bold mb-2">
-        Clustering con Gaussian Mixture Model
-      </h2>
+      <h2 className="text-xl font-bold mb-2">Clustering con KMeans</h2>
       {isLoading && (
         <p className="text-blue-500">Cargando datos del modelo...</p>
       )}
       {isError && <p className="text-red-500">Error al cargar los datos.</p>}
-
       {data && (
-        <div className="mb-4">
+        <div
+          className="mb-4"
+          style={{
+            height: '120px',
+            columnCount: 2,
+            columnGap: '1rem',
+            overflowY: 'auto',
+          }}
+        >
           <p>
-            <strong>Log-Likelihood:</strong> {data.score.toFixed(2)}
+            <strong>Inertia:</strong> {data.inertia.toFixed(2)}
           </p>
           <p>
-            <strong>BIC:</strong> {data.bic}
+            <strong>Silhouette Score:</strong>{' '}
+            {data.silhouette_score?.toFixed(2)}
           </p>
           <p>
-            <strong>AIC:</strong> {data.aic}
+            <strong>Calinski-Harabasz:</strong>{' '}
+            {data.calinski_harabasz_score?.toFixed(2)}
           </p>
           <p>
-            <strong>Iteraciones:</strong> {data.n_iter}
+            <strong>Davies-Bouldin:</strong>{' '}
+            {data.davies_bouldin_score?.toFixed(2)}
           </p>
           <p>
-            <strong>¿Convergió?</strong> {data.converged ? 'Sí' : 'No'}
+            <strong>Adjusted Rand Index:</strong>{' '}
+            {data.adjusted_rand_index?.toFixed(2)}
           </p>
         </div>
       )}
-
-      <svg ref={svgRef} className="border border-gray-300"></svg>
+      <svg
+        ref={svgRef}
+        className="border border-gray-300 place-self-center"
+      ></svg>
     </div>
   );
 };
 
-export default GmmClusteringChart;
+export default KMeansClusteringChart;

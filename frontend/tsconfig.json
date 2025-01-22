@@ -19,6 +19,6 @@
       "@/*": ["*"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "hooks/hooks.ts"],
   "exclude": ["node_modules"]
 }
