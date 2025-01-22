@@ -33,7 +33,7 @@ const ClusteringPage: React.FC = () => {
           </div>
 
           {/* Descripción Dinámica */}
-          <div className="mb-4 text-gray-700 h-72">
+          <div className="mb-4 text-gray-700 h-80">
             <ReactMarkdown components={markdownComponents}>
               {clusteringDescriptions[algorithm1]}
             </ReactMarkdown>
@@ -84,7 +84,7 @@ const ClusteringPage: React.FC = () => {
           </div>
 
           {/* Descripción Dinámica */}
-          <div className="mb-4 text-gray-700 h-72">
+          <div className="mb-4 text-gray-700 h-80">
             <ReactMarkdown components={markdownComponents}>
               {clusteringDescriptions[algorithm2]}
             </ReactMarkdown>
