@@ -14,10 +14,14 @@ import {
 const SegmentationPage: React.FC = () => {
   const [algorithm1, setAlgorithm1] = useState<'GMM' | 'KMeans'>('GMM');
   const [algorithm2, setAlgorithm2] = useState<'GMM' | 'KMeans'>('KMeans');
-  const [selectedDataset, setSelectedDataset] = useState<'MNIST' | 'CIFAR10'>(
-    'MNIST'
-  );
+  const [selectedDataset, setSelectedDataset] = useState<
+    'MNIST' | 'CIFAR10' | 'Upload'
+  >('MNIST');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [uploadedImageFile, setUploadedImageFile] = useState<File | null>(null);
+  const [imageDimensions, setImageDimensions] = useState<[number, number]>([
+    256, 256,
+  ]);
 
   const [mnistImages, setMnistImages] = useState<
     { url: string; label: number }[]
@@ -28,6 +32,11 @@ const SegmentationPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    if (selectedDataset === 'Upload') {
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     Promise.all([
       axios.get('http://localhost:5000/datasets/mnist'),
@@ -39,9 +48,22 @@ const SegmentationPage: React.FC = () => {
       })
       .catch((error) => console.error('Error al cargar las imágenes:', error))
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [selectedDataset]);
 
-  const images = selectedDataset === 'MNIST' ? mnistImages : cifarImages;
+  // Para resetear estados al cambiar de dataset
+  useEffect(() => {
+    if (selectedDataset !== 'Upload') {
+      setUploadedImageFile(null);
+      setSelectedImage(null);
+    }
+  }, [selectedDataset]);
+
+  const images =
+    selectedDataset === 'MNIST'
+      ? mnistImages
+      : selectedDataset === 'CIFAR10'
+        ? cifarImages
+        : [];
 
   const getDefaultConfig = (
     algorithm: 'GMM' | 'KMeans'
@@ -49,24 +71,106 @@ const SegmentationPage: React.FC = () => {
     algorithm: 'GMM' | 'KMeans';
     nComponents: number;
     resizeShape: [number, number];
-    imageUrl: string;
+    imageUrl: string | null;
+    imageFile?: File | null;
   } => {
     return {
       algorithm,
       nComponents: 3,
-      resizeShape: [256, 256],
-      imageUrl: selectedImage || '',
+      resizeShape: imageDimensions,
+      imageUrl:
+        selectedDataset === 'Upload'
+          ? selectedImage || null
+          : selectedImage || null,
+      imageFile:
+        selectedDataset === 'Upload' ? uploadedImageFile || null : null,
     };
   };
 
-  const defaultConfig1 = useMemo(
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadedImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setSelectedImage(result);
+
+        // Cargar la imagen para obtener sus dimensiones
+        const img = new Image();
+        img.onload = () => {
+          const maxDimension = 512; // Define una dimensión máxima
+          let width = img.naturalWidth;
+          let height = img.naturalHeight;
+
+          if (width > height) {
+            if (width > maxDimension) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            }
+          } else {
+            if (height > maxDimension) {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+
+          setImageDimensions([width, height]);
+        };
+        img.src = result;
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleDatasetImageSelect = (imageUrl: string) => {
+    setSelectedImage(imageUrl);
+    setUploadedImageFile(null);
+
+    // Cargar la imagen para obtener sus dimensiones
+    const img = new Image();
+    img.onload = () => {
+      const maxDimension = 512; // Define una dimensión máxima
+      let width = img.naturalWidth;
+      let height = img.naturalHeight;
+
+      if (width > height) {
+        if (width > maxDimension) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        }
+      } else {
+        if (height > maxDimension) {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+      }
+
+      setImageDimensions([width, height]);
+    };
+    img.src = imageUrl;
+  };
+
+  const defaultConfig1Memo = useMemo(
     () => getDefaultConfig(algorithm1),
-    [algorithm1, selectedImage]
+    [
+      algorithm1,
+      selectedImage,
+      uploadedImageFile,
+      selectedDataset,
+      imageDimensions,
+    ]
   );
 
-  const defaultConfig2 = useMemo(
+  const defaultConfig2Memo = useMemo(
     () => getDefaultConfig(algorithm2),
-    [algorithm2, selectedImage]
+    [
+      algorithm2,
+      selectedImage,
+      uploadedImageFile,
+      selectedDataset,
+      imageDimensions,
+    ]
   );
 
   return (
@@ -74,19 +178,20 @@ const SegmentationPage: React.FC = () => {
       <h1 className="text-2xl font-bold mb-4">Segmentación de Imágenes</h1>
 
       {/* Selector de dataset */}
-      <div className="mb-4 flex items-center gap-4">
+      <div className="mb-4 flex flex-col md:flex-row items-start md:items-center gap-4">
         <label className="text-lg font-semibold">
           Selecciona el conjunto de datos:
         </label>
         <select
           value={selectedDataset}
           onChange={(e) =>
-            setSelectedDataset(e.target.value as 'MNIST' | 'CIFAR10')
+            setSelectedDataset(e.target.value as 'MNIST' | 'CIFAR10' | 'Upload')
           }
           className="p-2 border border-gray-300 rounded"
         >
           <option value="MNIST">MNIST</option>
           <option value="CIFAR10">CIFAR-10</option>
+          <option value="Upload">Subir Imagen</option>
         </select>
 
         <div className="text-gray-700 flex-1">
@@ -96,15 +201,25 @@ const SegmentationPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Selector de imágenes */}
-      {isLoading ? (
-        <div className="flex h-screen mt-10 ml-10">
+      {/* Selector de imágenes o subida */}
+      {selectedDataset === 'Upload' ? (
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold mb-2">Sube una imagen:</h2>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            className="p-2 border border-gray-300 rounded"
+          />
+        </div>
+      ) : isLoading ? (
+        <div className="flex justify-center items-center h-64">
           <p className="text-gray-500 text-2xl">Cargando imágenes...</p>
         </div>
       ) : (
         <div className="mb-4">
           <h2 className="text-lg font-semibold mb-2">Selecciona una imagen:</h2>
-          <div className="grid grid-cols-10 gap-4">
+          <div className="grid grid-cols-5 md:grid-cols-10 gap-4">
             {images.map((image, idx) => (
               <img
                 key={idx}
@@ -115,7 +230,7 @@ const SegmentationPage: React.FC = () => {
                     ? 'border-blue-500'
                     : 'border-transparent'
                 }`}
-                onClick={() => setSelectedImage(image.url)}
+                onClick={() => handleDatasetImageSelect(image.url)}
                 style={{
                   width: '100px',
                   height: '100px',
@@ -184,13 +299,13 @@ const SegmentationPage: React.FC = () => {
             {/* Segmentación 1 */}
             <SegmentationSection
               title={`Segmentación con ${algorithm1}`}
-              defaultConfig={defaultConfig1}
+              defaultConfig={defaultConfig1Memo}
             />
 
             {/* Segmentación 2 */}
             <SegmentationSection
               title={`Segmentación con ${algorithm2}`}
-              defaultConfig={defaultConfig2}
+              defaultConfig={defaultConfig2Memo}
             />
           </div>
         </>

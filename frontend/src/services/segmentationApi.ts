@@ -5,7 +5,8 @@ export interface SegmentationParams {
   algorithm: 'GMM' | 'KMeans';
   n_components: number;
   resize_shape: [number, number];
-  image_url: string;
+  imageUrl?: string;
+  imageFile?: File;
 }
 
 export interface SegmentationResponse {
@@ -21,11 +22,30 @@ export const segmentationApi = api.injectEndpoints({
       SegmentationResponse,
       SegmentationParams
     >({
-      query: (params) => ({
-        url: '/segment',
-        method: 'POST',
-        body: params,
-      }),
+      query: ({
+        algorithm,
+        n_components,
+        resize_shape,
+        imageUrl,
+        imageFile,
+      }) => {
+        const formData = new FormData();
+        formData.append('algorithm', algorithm);
+        formData.append('n_components', n_components.toString());
+        formData.append('resize_shape', resize_shape.join(','));
+
+        if (imageFile) {
+          formData.append('image_file', imageFile);
+        } else if (imageUrl) {
+          formData.append('image_url', imageUrl);
+        }
+
+        return {
+          url: 'segment',
+          method: 'POST',
+          body: formData,
+        };
+      },
     }),
   }),
 });

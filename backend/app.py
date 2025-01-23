@@ -6,7 +6,7 @@ from sklearn.cluster import KMeans
 from sklearn.ensemble import IsolationForest
 from sklearn.datasets import make_blobs
 from sklearn.datasets import fetch_openml
-from skimage import io, color
+from skimage import io as skio, color
 from PIL import Image
 from skimage.transform import resize
 from sklearn.metrics import (
@@ -393,51 +393,92 @@ def get_cifar10_images():
 def segment_image():
     """
     Endpoint para segmentar imágenes usando GMM o KMeans.
+    Acepta tanto una URL de imagen como un archivo de imagen subido.
     """
-    req_data = request.get_json()
-    algorithm = req_data.get('algorithm', 'GMM')  # GMM o KMeans
-    n_components = req_data.get('n_components', 3)  # Número de clusters
-    image_url = req_data.get('image_url')          # URL de la imagen
-    resize_shape = req_data.get('resize_shape', (256, 256))  # Tamaño de redimensionado
-
-    if not image_url:
-        return jsonify({"error": "Se requiere una URL de la imagen"}), 400
-
-    # Cargar y procesar la imagen
-    # Cargar y procesar la imagen
+    algorithm = request.form.get('algorithm', 'GMM')  # 'GMM' o 'KMeans'
+    n_components = request.form.get('n_components', 3)  # Número de clusters
+    resize_shape = request.form.get('resize_shape', '256,256')  # Tamaño de redimensionado
     try:
-        image = io.imread(image_url)
-        image = resize(image, resize_shape, anti_aliasing=True)
+        n_components = int(n_components)
+    except ValueError:
+        return jsonify({"error": "n_components debe ser un número entero."}), 400
+
+    # Procesar resize_shape
+    try:
+        resize_shape = tuple(map(int, resize_shape.split(',')))  # (ancho, alto)
+        if len(resize_shape) != 2:
+            raise ValueError
+    except ValueError:
+        return jsonify({"error": "resize_shape debe ser una tupla de dos enteros, por ejemplo '256,256'."}), 400
+
+    # Inicializar la variable image
+    image = None
+
+    # Verificar si se ha subido un archivo de imagen
+    if 'image_file' in request.files and request.files['image_file'].filename != '':
+        image_file = request.files['image_file']
+        try:
+            # Abrir la imagen usando PIL y convertirla a RGB
+            pil_image = Image.open(image_file.stream).convert('RGB')
+            image = np.array(pil_image)
+        except Exception as e:
+            return jsonify({"error": f"Error al leer la imagen subida: {str(e)}"}), 400
+    else:
+        # Si no se ha subido un archivo, intentar obtener la imagen desde una URL
+        image_url = request.form.get('image_url')
+        if not image_url:
+            return jsonify({"error": "Se requiere una URL de la imagen o un archivo de imagen subido."}), 400
+        try:
+            image = skio.imread(image_url)
+        except Exception as e:
+            return jsonify({"error": f"Error al cargar la imagen desde la URL proporcionada: {str(e)}"}), 400
+
+    # Procesar la imagen
+    try:
+        # Invertir el orden de las dimensiones para (alto, ancho)
+        height, width = resize_shape[1], resize_shape[0]
+        image = resize(image, (height, width), anti_aliasing=True)
 
         # Asegurarse de que la imagen tenga 3 canales (RGB)
         if len(image.shape) == 2:  # Escala de grises
             image = np.stack((image,)*3, axis=-1)
+        elif image.shape[2] == 4:  # RGBA a RGB
+            image = color.rgba2rgb(image)
 
-        image_lab = color.rgb2lab(image)  # Convertir a LAB para mejor segmentación
+        # Convertir la imagen a espacio de color LAB para una mejor segmentación
+        image_lab = color.rgb2lab(image)
         flat_image = image_lab.reshape((-1, 3))
     except Exception as e:
         return jsonify({"error": f"Error al procesar la imagen: {str(e)}"}), 400
 
-    if algorithm == 'GMM':
-        model = GaussianMixture(n_components=n_components, random_state=42)
-        model.fit(flat_image)
-        labels = model.predict(flat_image)
-        cluster_centers = model.means_
-    elif algorithm == 'KMeans':
-        model = KMeans(n_clusters=n_components, random_state=42)
-        model.fit(flat_image)
-        labels = model.labels_
-        cluster_centers = model.cluster_centers_
-    else:
-        return jsonify({"error": "Algoritmo no soportado. Use 'GMM' o 'KMeans'."}), 400
+    # Aplicar el algoritmo de segmentación seleccionado
+    try:
+        if algorithm == 'GMM':
+            model = GaussianMixture(n_components=n_components, random_state=42)
+            model.fit(flat_image)
+            labels = model.predict(flat_image)
+            cluster_centers = model.means_
+        elif algorithm == 'KMeans':
+            model = KMeans(n_clusters=n_components, random_state=42)
+            model.fit(flat_image)
+            labels = model.labels_
+            cluster_centers = model.cluster_centers_
+        else:
+            return jsonify({"error": "Algoritmo no soportado. Use 'GMM' o 'KMeans'."}), 400
+    except Exception as e:
+        return jsonify({"error": f"Error al aplicar el algoritmo de segmentación: {str(e)}"}), 500
 
     # Reconstruir la imagen segmentada
-    segmented_image = cluster_centers[labels].reshape(image_lab.shape)
-    segmented_image_rgb = color.lab2rgb(segmented_image)
+    try:
+        segmented_image = cluster_centers[labels].reshape((height, width, 3))
+        segmented_image_rgb = color.lab2rgb(segmented_image)
+    except Exception as e:
+        return jsonify({"error": f"Error al reconstruir la imagen segmentada: {str(e)}"}), 500
 
+    # Preparar la respuesta
     response = {
         "segmented_image": segmented_image_rgb.tolist(),
-        "labels": labels.reshape(resize_shape[:2]).tolist(),
+        "labels": labels.reshape((height, width)).tolist(),
         "cluster_centers": cluster_centers.tolist(),
         "algorithm": algorithm
     }

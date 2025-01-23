@@ -10,7 +10,8 @@ interface SegmentationSectionProps {
     algorithm: 'GMM' | 'KMeans';
     nComponents: number;
     resizeShape: [number, number];
-    imageUrl: string;
+    imageUrl: string | null;
+    imageFile?: File | null;
   };
 }
 
@@ -46,6 +47,7 @@ const SegmentationSection: React.FC<SegmentationSectionProps> = ({
         nComponents={nComponents}
         resizeShape={defaultConfig.resizeShape}
         imageUrl={defaultConfig.imageUrl}
+        imageFile={defaultConfig.imageFile}
       />
     </div>
   );

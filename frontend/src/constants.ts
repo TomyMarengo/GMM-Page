@@ -77,7 +77,7 @@ En este dataset:
   `,
 };
 
-export type SegmentationDataset = 'MNIST' | 'CIFAR10';
+export type SegmentationDataset = 'MNIST' | 'CIFAR10' | 'Upload';
 
 export const segmentationDatasetDescription: Record<
   SegmentationDataset,
@@ -94,6 +94,12 @@ export const segmentationDatasetDescription: Record<
 - Cada imagen tiene una resolución de 32x32 píxeles.
 - Utilizado para tareas más complejas debido a la variedad y riqueza de las clases.
 - Ejemplo: Segmentación de regiones específicas en imágenes de objetos como automóviles o pájaros.
+`,
+  Upload: `
+- Sube tu propia imagen para realizar segmentación.
+- Asegúrate de que la imagen sea clara y tenga un tamaño razonable.
+- La segmentación puede ayudar a identificar regiones de interés o separar objetos del fondo.
+- Ejemplo: Segmentación de una imagen de paisaje para aislar el cielo, el agua y la tierra.
 `,
 };
 

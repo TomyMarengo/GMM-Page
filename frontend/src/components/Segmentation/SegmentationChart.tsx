@@ -1,3 +1,5 @@
+// src/components/Segmentation/SegmentationChart.tsx
+
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useFetchSegmentationMutation } from '@/services/segmentationApi';
@@ -6,7 +8,8 @@ interface SegmentationChartProps {
   algorithm: 'GMM' | 'KMeans';
   nComponents: number;
   resizeShape: [number, number];
-  imageUrl: string;
+  imageUrl: string | null; // Puede ser null si se sube una imagen
+  imageFile?: File | null; // Opcional, solo si se sube una imagen
 }
 
 const SegmentationChart: React.FC<SegmentationChartProps> = ({
@@ -14,28 +17,30 @@ const SegmentationChart: React.FC<SegmentationChartProps> = ({
   nComponents,
   resizeShape,
   imageUrl,
+  imageFile,
 }) => {
   const [fetchSegmentation, { data, isLoading, isError }] =
     useFetchSegmentationMutation();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [hoverInfo, setHoverInfo] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<string | null>(null);
+  const [originalImageUrl, setOriginalImageUrl] = useState<string | null>(null);
 
   const clusterColors = useMemo(
     () =>
       data?.cluster_centers.map((_, index) => {
         const hue = (index * 360) / data.cluster_centers.length;
         return [
-          Math.round(hue), // R
-          Math.round((hue + 120) % 255), // G
-          Math.round((hue + 240) % 255), // B
+          Math.round(((hue % 360) * 255) / 360), // R
+          Math.round((((hue + 120) % 360) * 255) / 360), // G
+          Math.round((((hue + 240) % 360) * 255) / 360), // B
         ];
       }),
     [data]
   );
 
   useEffect(() => {
-    if (!imageUrl) return;
+    if (!imageUrl && !imageFile) return;
 
     const fetchData = async () => {
       try {
@@ -43,7 +48,8 @@ const SegmentationChart: React.FC<SegmentationChartProps> = ({
           algorithm,
           n_components: nComponents,
           resize_shape: resizeShape,
-          image_url: imageUrl,
+          imageUrl: imageFile ? undefined : imageUrl || '',
+          imageFile: imageFile || undefined,
         });
 
         if (response.data) {
@@ -70,7 +76,14 @@ const SegmentationChart: React.FC<SegmentationChartProps> = ({
     };
 
     fetchData();
-  }, [algorithm, nComponents, resizeShape, imageUrl, fetchSegmentation]);
+  }, [
+    algorithm,
+    nComponents,
+    resizeShape,
+    imageUrl,
+    imageFile,
+    fetchSegmentation,
+  ]);
 
   useEffect(() => {
     if (!data || !canvasRef.current || !clusterColors) return;
@@ -87,8 +100,8 @@ const SegmentationChart: React.FC<SegmentationChartProps> = ({
     const imageData = ctx.createImageData(width, height);
 
     // Crear mapa de colores para cada píxel
-    data.labels.forEach((row, y) => {
-      row.forEach((label, x) => {
+    data.labels.forEach((row: number[], y: number) => {
+      row.forEach((label: number, x: number) => {
         const index = (y * width + x) * 4;
         const [r, g, b] = clusterColors[label];
         imageData.data[index] = r; // R
@@ -124,9 +137,25 @@ const SegmentationChart: React.FC<SegmentationChartProps> = ({
     }
   };
 
+  // Obtener la URL de la imagen original
+  useEffect(() => {
+    if (imageFile) {
+      const objectUrl = URL.createObjectURL(imageFile);
+      setOriginalImageUrl(objectUrl);
+
+      return () => {
+        URL.revokeObjectURL(objectUrl);
+        setOriginalImageUrl(null);
+      };
+    } else {
+      setOriginalImageUrl(imageUrl);
+    }
+  }, [imageUrl, imageFile]);
+
   return (
-    <div className="grid grid-cols-2 gap-4 relative">
-      <div>
+    <div className="flex flex-col md:flex-row md:space-x-4 gap-4">
+      {/* Imagen Segmentada */}
+      <div className="w-full relative">
         <h3 className="text-lg font-semibold mb-2">Imagen Segmentada</h3>
         {isLoading ? (
           <p className="text-gray-500">Procesando...</p>
@@ -136,16 +165,23 @@ const SegmentationChart: React.FC<SegmentationChartProps> = ({
           <>
             <canvas
               ref={canvasRef}
-              className="w-full border"
+              className="border w-full h-auto"
               onMouseMove={handleMouseMove}
+              width={resizeShape[0]}
+              height={resizeShape[1]}
+              style={{
+                display: 'block',
+                maxWidth: '100%',
+                height: 'auto',
+              }}
             />
             {hoverInfo && (
-              <div className="absolute top-2 left-2 bg-black text-white text-sm p-2 rounded">
+              <div className="absolute top-0 right-0 bg-black text-white text-sm p-2 rounded">
                 {hoverInfo}
               </div>
             )}
             {metrics && (
-              <div className="absolute bottom-2 left-2 bg-gray-800 text-white text-sm p-2 rounded">
+              <div className="absolute -bottom-5 left-0 bg-gray-800 text-white text-sm p-2 rounded">
                 <h4 className="font-bold">Distribución de Clusters:</h4>
                 <p>{metrics}</p>
               </div>
@@ -153,9 +189,24 @@ const SegmentationChart: React.FC<SegmentationChartProps> = ({
           </>
         )}
       </div>
-      <div>
+
+      {/* Imagen Original */}
+      <div className="w-full">
         <h3 className="text-lg font-semibold mb-2">Imagen Original</h3>
-        <img src={imageUrl} alt="Original" className="w-full border" />
+        {originalImageUrl ? (
+          <img
+            src={originalImageUrl}
+            alt="Original"
+            className="border w-full h-auto"
+            style={{
+              display: 'block',
+              maxWidth: '100%',
+              height: 'auto',
+            }}
+          />
+        ) : (
+          <p className="text-gray-500">No hay imagen seleccionada.</p>
+        )}
       </div>
     </div>
   );
