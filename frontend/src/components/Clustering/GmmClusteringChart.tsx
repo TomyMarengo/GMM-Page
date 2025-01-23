@@ -6,7 +6,7 @@ import * as numeric from 'numeric';
 import React, { useEffect, useRef } from 'react';
 import Skeleton from 'react-loading-skeleton';
 
-import { useFetchGmmClusteringMutation } from '@/services/clusteringApi';
+import { useFetchGmmClusteringMutation } from '@/services/slices/clusteringApiSlice';
 
 interface GmmClusteringChartProps {
   nComponents: number;

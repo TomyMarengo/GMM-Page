@@ -5,7 +5,7 @@ import * as d3 from 'd3';
 import React, { useEffect, useRef } from 'react';
 import Skeleton from 'react-loading-skeleton';
 
-import { useFetchKMeansClusteringMutation } from '@/services/clusteringApi';
+import { useFetchKMeansClusteringMutation } from '@/services/slices/clusteringApiSlice';
 
 interface KMeansClusteringChartProps {
   nClusters: number;

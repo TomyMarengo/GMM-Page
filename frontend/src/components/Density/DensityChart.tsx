@@ -4,7 +4,7 @@ import * as d3 from 'd3';
 import React, { useEffect, useRef } from 'react';
 import Skeleton from 'react-loading-skeleton';
 
-import { useFetchDensityMutation } from '@/services/densityApi';
+import { useFetchDensityMutation } from '@/services/slices/densityApiSlice';
 
 interface DensityChartProps {
   nComponents: number;

@@ -349,6 +349,22 @@ def density_modeling():
 def serve_static(filename):
     return send_from_directory('./', filename)
 
+@app.route('/datasets/iris', methods=['GET'])
+def get_iris_data():
+    from sklearn.datasets import load_iris
+    iris = load_iris()
+    data = iris.data.tolist()
+    feature_names = iris.feature_names
+    target = iris.target.tolist()
+    target_names = iris.target_names.tolist()
+    
+    return jsonify({
+        "data": data,
+        "feature_names": feature_names,
+        "target": target,
+        "target_names": target_names
+    })
+
 @app.route('/datasets/mnist', methods=['GET'])
 def get_mnist_images():
     from tensorflow.keras.datasets import mnist

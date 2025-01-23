@@ -27,7 +27,7 @@ export interface AnomalyParams {
   max_samples?: string | number; // Solo para Isolation Forest
 }
 
-export const anomalyApi = api.injectEndpoints({
+export const anomalyApiSlice = api.injectEndpoints({
   endpoints: (builder) => ({
     fetchAnomalyDetection: builder.mutation<AnomalyResponse, AnomalyParams>({
       query: (params) => ({
@@ -39,4 +39,4 @@ export const anomalyApi = api.injectEndpoints({
   }),
 });
 
-export const { useFetchAnomalyDetectionMutation } = anomalyApi;
+export const { useFetchAnomalyDetectionMutation } = anomalyApiSlice;

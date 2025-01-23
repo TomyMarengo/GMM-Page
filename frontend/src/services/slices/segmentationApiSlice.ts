@@ -16,7 +16,7 @@ export interface SegmentationResponse {
   algorithm: 'GMM' | 'KMeans';
 }
 
-export const segmentationApi = api.injectEndpoints({
+export const segmentationApiSlice = api.injectEndpoints({
   endpoints: (builder) => ({
     fetchSegmentation: builder.mutation<
       SegmentationResponse,
@@ -50,4 +50,4 @@ export const segmentationApi = api.injectEndpoints({
   }),
 });
 
-export const { useFetchSegmentationMutation } = segmentationApi;
+export const { useFetchSegmentationMutation } = segmentationApiSlice;

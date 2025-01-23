@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
-import { useFetchSegmentationMutation } from '@/services/segmentationApi';
+import { useFetchSegmentationMutation } from '@/services/slices/segmentationApiSlice';
 
 interface SegmentationChartProps {
   algorithm: 'GMM' | 'KMeans';

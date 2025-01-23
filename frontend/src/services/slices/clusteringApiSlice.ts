@@ -48,7 +48,7 @@ export interface KMeansParams {
   n_features?: number;
 }
 
-export const clusteringApi = api.injectEndpoints({
+export const clusteringApiSlice = api.injectEndpoints({
   endpoints: (builder) => ({
     fetchGmmClustering: builder.mutation<GmmResponse, GmmParams>({
       query: (params) => ({
@@ -70,4 +70,4 @@ export const clusteringApi = api.injectEndpoints({
 export const {
   useFetchGmmClusteringMutation,
   useFetchKMeansClusteringMutation,
-} = clusteringApi;
+} = clusteringApiSlice;

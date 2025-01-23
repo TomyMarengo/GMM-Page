@@ -21,7 +21,7 @@ export interface DensityResponse {
   feature_names: string[]; // Nombres de las características del dataset original (opcional)
 }
 
-export const densityApi = api.injectEndpoints({
+export const densityApiSlice = api.injectEndpoints({
   endpoints: (builder) => ({
     fetchDensity: builder.mutation<DensityResponse, DensityParams>({
       query: (params) => ({
@@ -33,4 +33,4 @@ export const densityApi = api.injectEndpoints({
   }),
 });
 
-export const { useFetchDensityMutation } = densityApi;
+export const { useFetchDensityMutation } = densityApiSlice;

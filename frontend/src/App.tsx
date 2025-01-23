@@ -8,7 +8,6 @@ import AnomalyPage from '@/pages/AnomalyPage';
 import ClusteringPage from '@/pages/ClusteringPage';
 import DensityPage from '@/pages/DensityPage';
 import HomePage from '@/pages/HomePage';
-import PatternsPage from '@/pages/PatternsPage';
 import SegmentationPage from '@/pages/SegmentationPage';
 
 const App: React.FC = () => {
@@ -22,7 +21,6 @@ const App: React.FC = () => {
       label: 'Segmentación de Imágenes',
       path: '/segmentation',
     },
-    { key: 'patterns', label: 'Reconocimiento de Patrones', path: '/patterns' },
   ];
 
   const renderContent = () => {
@@ -33,7 +31,6 @@ const App: React.FC = () => {
         <Route path="/anomalies" element={<AnomalyPage />} />
         <Route path="/density" element={<DensityPage />} />
         <Route path="/segmentation" element={<SegmentationPage />} />
-        <Route path="/patterns" element={<PatternsPage />} />
         <Route path="*" element={<div>Pagina no encontrada</div>} />
       </Routes>
     );

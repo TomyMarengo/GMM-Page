@@ -38,37 +38,35 @@ const HomePage: React.FC = () => {
           </h2>
           <ul className="list-inside text-base text-gray-800 text-center list-none flex gap-3">
             <li>
-              <div className="font-bold mb-2">Clustering</div>
-              <div>
+              <div className="text-xl font-bold mb-2">Clustering</div>
+              <div className="text-lg">
                 Explorá diferentes algoritmos de clustering como GMM y KMeans
                 para agrupar tus datos.
               </div>
             </li>
             <li>
-              <div className="font-bold mb-2">Detección de Anomalías</div>
-              <div>
+              <div className="text-xl font-bold mb-2">
+                Detección de Anomalías
+              </div>
+              <div className="text-lg">
                 Utilizá técnicas avanzadas como Isolation Forest y GMM para
                 identificar datos atípicos.
               </div>
             </li>
             <li>
-              <div className="font-bold mb-2">Modelado de Densidad</div>
-              <div>
+              <div className="text-xl font-bold mb-2">Modelado de Densidad</div>
+              <div className="text-lg">
                 Analizá la densidad de tus datos para comprender mejor su
                 distribución.
               </div>
             </li>
             <li>
-              <div className="font-bold mb-2">Segmentación de Imágenes</div>
-              <div>
+              <div className="text-xl font-bold mb-2">
+                Segmentación de Imágenes
+              </div>
+              <div className="text-lg">
                 Aplicá algoritmos de clustering para segmentar imágenes de
                 manera efectiva.
-              </div>
-            </li>
-            <li>
-              <div className="font-bold mb-2">Reconocimiento de Patrones</div>
-              <div>
-                Identificá patrones recurrentes en tus conjuntos de datos.
               </div>
             </li>
           </ul>

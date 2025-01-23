@@ -7,7 +7,7 @@ import Skeleton from 'react-loading-skeleton';
 
 import PRCurve from '@/components/Anomaly/PRCurve';
 import ROCCurve from '@/components/Anomaly/ROCCurve';
-import { useFetchAnomalyDetectionMutation } from '@/services/anomalyApi';
+import { useFetchAnomalyDetectionMutation } from '@/services/slices/anomalyApiSlice';
 import {
   calculatePRCurve,
   calculateROCCurve,
