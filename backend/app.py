@@ -195,7 +195,27 @@ def anomaly_detection():
     random_state = req_data.get('random_state', 42)
     n_samples = req_data.get('n_samples', 150)
     n_features = req_data.get('n_features', 2)
+    
+    # Parámetros adicionales para Isolation Forest
+    n_estimators = req_data.get('n_estimators', 100)  # Solo para Isolation Forest
+    max_samples = req_data.get('max_samples', 'auto')  # Solo para Isolation Forest
 
+    if isinstance(max_samples, str):
+        if max_samples.lower() == 'auto':
+            max_samples = 'auto'
+        else:
+            try:
+                if '.' in max_samples:
+                    max_samples = float(max_samples)
+                else:
+                    max_samples = int(max_samples)
+            except ValueError:
+                return jsonify({"error": "max_samples debe ser 'auto' o un número válido"}), 400
+    elif isinstance(max_samples, (int, float)):
+        pass
+    else:
+        return jsonify({"error": "max_samples debe ser 'auto' o un número válido"}), 400
+    
     # Generar dataset con blobs y algunas anomalías
     data, labels_true = make_blobs(
         n_samples=n_samples, centers=3, n_features=n_features, random_state=random_state
@@ -207,41 +227,45 @@ def anomaly_detection():
     anomalies = np.random.uniform(low=-10, high=10, size=(n_anomalies, n_features))
     data = np.vstack([data, anomalies])
     labels_true = np.hstack([labels_true, [-1]*n_anomalies])  # -1 para anomalías
-
+    
     # Si se reciben más de 2 features, aplicar PCA para reducir a 2 componentes.
     if n_features > 2:
         pca = PCA(n_components=2, random_state=random_state)
         data = pca.fit_transform(data)
         n_features = 2
-
+    
     if algorithm == 'GMM':
         model = GaussianMixture(n_components=n_components, random_state=random_state)
         model.fit(data)
-        scores = model.score_samples(data)
+        scores = model.score_samples(data)  # Puntuaciones de GMM
         # Calcular umbral basado en la contaminación
         threshold = np.percentile(scores, contamination * 100)
         predictions = scores < threshold  # True para anomalías
     elif algorithm == 'IsolationForest':
-        model = IsolationForest(contamination=contamination, random_state=random_state)
+        model = IsolationForest(
+            contamination=contamination,
+            random_state=random_state,
+            n_estimators=n_estimators,
+            max_samples=max_samples
+        )
         model.fit(data)
-        predictions = model.predict(data)
-        # Convertir predicciones: -1 para anomalías, 1 para normales
-        predictions = predictions == -1
+        scores = model.decision_function(data)  # Puntuaciones de Isolation Forest
+        predictions = model.predict(data) == -1  # True para anomalías
     else:
         return jsonify({"error": "Algoritmo no soportado"}), 400
-
+    
     # Métricas de evaluación
     y_true = labels_true == -1
     y_pred = predictions
-
+    
     precision = precision_score(y_true, y_pred, zero_division=0)
     recall = recall_score(y_true, y_pred, zero_division=0)
     f1 = f1_score(y_true, y_pred, zero_division=0)
     try:
-        roc_auc = roc_auc_score(y_true, predictions)
+        roc_auc = roc_auc_score(y_true, scores if algorithm == 'GMM' else -scores)  # Invertir scores para Isolation Forest
     except:
         roc_auc = None
-
+    
     response = {
         "algorithm": algorithm,
         "contamination": contamination,
@@ -254,8 +278,64 @@ def anomaly_detection():
             "roc_auc": roc_auc
         },
         "labels_true": labels_true.tolist(),
+        "scores": scores.tolist(),  # Añadido
     }
+    
+    return jsonify(response)
 
+@app.route('/density', methods=['POST'])
+def density_modeling():
+    """
+    Endpoint para realizar modelado de densidad usando Gaussian Mixture Model.
+    Acepta un dataset como entrada, analiza la densidad y retorna visualización 2D.
+    """
+    req_data = request.get_json()
+    n_components = req_data.get('n_components', 3)  # Número de componentes GMM
+    random_state = req_data.get('random_state', 42)  # Semilla para reproducibilidad
+    covariance_type = req_data.get('covariance_type', 'full')  # Tipo de covarianza
+    dataset_name = req_data.get('dataset', 'iris')  # Dataset para análisis
+
+    # Seleccionar dataset
+    if dataset_name == 'iris':
+        from sklearn.datasets import load_iris
+        dataset = load_iris(as_frame=True)
+        data = dataset.frame
+        feature_names = dataset.feature_names
+    elif dataset_name == 'housing':
+        from sklearn.datasets import fetch_california_housing
+        dataset = fetch_california_housing(as_frame=True)
+        data = dataset.frame
+        feature_names = dataset.feature_names
+    else:
+        return jsonify({"error": "Dataset no soportado"}), 400
+
+    # Seleccionar solo variables numéricas
+    features = data.select_dtypes(include=['float64', 'int64']).values
+
+    # Reducir dimensiones si hay más de 2 features
+    if features.shape[1] > 2:
+        pca = PCA(n_components=2, random_state=random_state)
+        features = pca.fit_transform(features)
+
+    # Ajustar el modelo GMM
+    gmm = GaussianMixture(n_components=n_components, random_state=random_state, covariance_type=covariance_type)
+    gmm.fit(features)
+
+    density = np.exp(gmm.score_samples(features))  # Calcular la densidad
+    probabilities = gmm.predict_proba(features).tolist()
+
+    # Respuesta JSON
+    response = {
+        "data": features.tolist(),
+        "density": density.tolist(),
+        "probabilities": probabilities,
+        "means": gmm.means_.tolist(),
+        "covariances": gmm.covariances_.tolist(),
+        "bic": gmm.bic(features),
+        "aic": gmm.aic(features),
+        "converged": gmm.converged_,
+        "feature_names": feature_names,
+    }
     return jsonify(response)
 
 if __name__ == '__main__':

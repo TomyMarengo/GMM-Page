@@ -1,7 +1,10 @@
 // src/components/GmmClusteringChart.tsx
+import 'react-loading-skeleton/dist/skeleton.css';
+
 import * as d3 from 'd3';
 import * as numeric from 'numeric';
 import React, { useEffect, useRef } from 'react';
+import Skeleton from 'react-loading-skeleton';
 
 import { useFetchGmmClusteringMutation } from '@/services/clusteringApi';
 
@@ -46,7 +49,7 @@ const GmmClusteringChart: React.FC<GmmClusteringChartProps> = ({
   ]);
 
   useEffect(() => {
-    if (data && svgRef.current && nFeatures === 2) {
+    if (data && svgRef.current) {
       const width = 800;
       const height = 600;
       const margin = { top: 50, right: 50, bottom: 70, left: 70 };
@@ -59,7 +62,9 @@ const GmmClusteringChart: React.FC<GmmClusteringChartProps> = ({
 
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
-      svg.attr('width', width).attr('height', height);
+      svg
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .attr('preserveAspectRatio', 'xMidYMid meet');
 
       const xExtent = d3.extent(points, (d) => d.x) as [number, number];
       const yExtent = d3.extent(points, (d) => d.y) as [number, number];
@@ -158,57 +163,74 @@ const GmmClusteringChart: React.FC<GmmClusteringChartProps> = ({
       <h2 className="text-xl font-bold mb-2">
         Clustering con Gaussian Mixture Model
       </h2>
-      {isLoading && (
-        <p className="text-blue-500">Cargando datos del modelo...</p>
-      )}
-      {isError && <p className="text-red-500">Error al cargar los datos.</p>}
-      {data && (
-        <div
-          className="mb-4"
-          style={{
-            height: '120px',
-            columnCount: 2,
-            columnGap: '1rem',
-            overflowY: 'auto',
-          }}
-        >
-          <p>
-            <strong>Log-Likelihood:</strong> {data.score.toFixed(2)}
-          </p>
-          <p>
-            <strong>BIC:</strong> {data.bic}
-          </p>
-          <p>
-            <strong>AIC:</strong> {data.aic}
-          </p>
-          <p>
-            <strong>Iteraciones:</strong> {data.n_iter}
-          </p>
-          <p>
-            <strong>Convergió:</strong> {data.converged ? 'Sí' : 'No'}
-          </p>
-          <p>
-            <strong>Silhouette Score:</strong>{' '}
-            {data.silhouette_score?.toFixed(2)}
-          </p>
-          <p>
-            <strong>Calinski-Harabasz:</strong>{' '}
-            {data.calinski_harabasz_score?.toFixed(2)}
-          </p>
-          <p>
-            <strong>Davies-Bouldin:</strong>{' '}
-            {data.davies_bouldin_score?.toFixed(2)}
-          </p>
-          <p>
-            <strong>Adjusted Rand Index:</strong>{' '}
-            {data.adjusted_rand_index?.toFixed(2)}
-          </p>
-        </div>
-      )}
-      <svg
-        ref={svgRef}
-        className="border border-gray-300 place-self-center"
-      ></svg>
+
+      {/* Sección de Métricas */}
+      <div
+        style={{
+          height: '100px',
+          columnWidth: '200px',
+          columnGap: '1rem',
+          overflowY: 'auto',
+        }}
+      >
+        {isLoading ? (
+          <>
+            <Skeleton height={20} count={9} />
+          </>
+        ) : isError ? (
+          <p className="text-red-500">Error al cargar los datos.</p>
+        ) : data ? (
+          <>
+            <p>
+              <strong>Log-Likelihood:</strong> {data.score.toFixed(2)}
+            </p>
+            <p>
+              <strong>BIC:</strong> {data.bic}
+            </p>
+            <p>
+              <strong>AIC:</strong> {data.aic}
+            </p>
+            <p>
+              <strong>Iteraciones:</strong> {data.n_iter}
+            </p>
+            <p>
+              <strong>Convergió:</strong> {data.converged ? 'Sí' : 'No'}
+            </p>
+            <p>
+              <strong>Silhouette Score:</strong>{' '}
+              {data.silhouette_score?.toFixed(2)}
+            </p>
+            <p>
+              <strong>Calinski-Harabasz:</strong>{' '}
+              {data.calinski_harabasz_score?.toFixed(2)}
+            </p>
+            <p>
+              <strong>Davies-Bouldin:</strong>{' '}
+              {data.davies_bouldin_score?.toFixed(2)}
+            </p>
+            <p>
+              <strong>Adjusted Rand Index:</strong>{' '}
+              {data.adjusted_rand_index?.toFixed(2)}
+            </p>
+          </>
+        ) : null}
+      </div>
+
+      {/* Sección del Gráfico */}
+      <div className="w-full">
+        {isLoading ? (
+          <div className="w-full h-full flex items-center justify-center border border-gray-300">
+            <Skeleton height={300} width="100%" />
+          </div>
+        ) : isError ? (
+          <p className="text-red-500">Error al cargar el gráfico.</p>
+        ) : (
+          <svg
+            ref={svgRef}
+            className="w-full h-full border border-gray-300"
+          ></svg>
+        )}
+      </div>
     </div>
   );
 };

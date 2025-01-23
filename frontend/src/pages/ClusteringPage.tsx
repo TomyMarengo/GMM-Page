@@ -16,27 +16,29 @@ const ClusteringPage: React.FC = () => {
     <div className="p-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Sección 1 */}
-        <div className="border border-gray-300 rounded p-4 flex flex-col">
-          <h2 className="text-2xl font-bold mb-4">Configuración 1</h2>
-          <div className="mb-4">
-            <label className="mr-2 font-semibold">Algoritmo:</label>
-            <select
-              value={algorithm1}
-              onChange={(e) =>
-                setAlgorithm1(e.target.value as ClusteringAlgorithm)
-              }
-              className="p-2 border border-gray-300 rounded"
-            >
-              <option value="GMM">GMM</option>
-              <option value="KMeans">KMeans</option>
-            </select>
-          </div>
+        <div className="flex flex-col">
+          <div className="p-4 border border-gray-300 rounded mb-4">
+            <h2 className="text-2xl font-bold mb-4">Configuración 1</h2>
+            <div className="mb-4 flex items-center gap-2">
+              <label className="block font-semibold">Algoritmo:</label>
+              <select
+                value={algorithm1}
+                onChange={(e) =>
+                  setAlgorithm1(e.target.value as ClusteringAlgorithm)
+                }
+                className="p-2 border border-gray-300 rounded"
+              >
+                <option value="GMM">GMM</option>
+                <option value="KMeans">KMeans</option>
+              </select>
+            </div>
 
-          {/* Descripción Dinámica */}
-          <div className="mb-4 text-gray-700 h-80">
-            <ReactMarkdown components={markdownComponents}>
-              {clusteringDescriptions[algorithm1]}
-            </ReactMarkdown>
+            {/* Descripción Dinámica */}
+            <div className="text-gray-700 flex-1">
+              <ReactMarkdown components={markdownComponents}>
+                {clusteringDescriptions[algorithm1]}
+              </ReactMarkdown>
+            </div>
           </div>
 
           {/* Sección de Clustering */}
@@ -67,27 +69,29 @@ const ClusteringPage: React.FC = () => {
         </div>
 
         {/* Sección 2 */}
-        <div className="border border-gray-300 rounded p-4 flex flex-col">
-          <h2 className="text-2xl font-bold mb-4">Configuración 2</h2>
-          <div className="mb-4">
-            <label className="mr-2 font-semibold">Algoritmo:</label>
-            <select
-              value={algorithm2}
-              onChange={(e) =>
-                setAlgorithm2(e.target.value as ClusteringAlgorithm)
-              }
-              className="p-2 border border-gray-300 rounded"
-            >
-              <option value="GMM">GMM</option>
-              <option value="KMeans">KMeans</option>
-            </select>
-          </div>
+        <div className="flex flex-col">
+          <div className="p-4 border border-gray-300 rounded mb-4">
+            <h2 className="text-2xl font-bold mb-4">Configuración 2</h2>
+            <div className="mb-4 flex items-center gap-2">
+              <label className="block font-semibold">Algoritmo:</label>
+              <select
+                value={algorithm2}
+                onChange={(e) =>
+                  setAlgorithm2(e.target.value as ClusteringAlgorithm)
+                }
+                className="p-2 border border-gray-300 rounded"
+              >
+                <option value="GMM">GMM</option>
+                <option value="KMeans">KMeans</option>
+              </select>
+            </div>
 
-          {/* Descripción Dinámica */}
-          <div className="mb-4 text-gray-700 h-80">
-            <ReactMarkdown components={markdownComponents}>
-              {clusteringDescriptions[algorithm2]}
-            </ReactMarkdown>
+            {/* Descripción Dinámica */}
+            <div className="text-gray-700 flex-1">
+              <ReactMarkdown components={markdownComponents}>
+                {clusteringDescriptions[algorithm2]}
+              </ReactMarkdown>
+            </div>
           </div>
 
           {/* Sección de Clustering */}

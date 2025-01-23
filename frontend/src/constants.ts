@@ -1,5 +1,4 @@
 export type AnomalyAlgorithm = 'GMM' | 'IsolationForest';
-export type ClusteringAlgorithm = 'GMM' | 'KMeans';
 
 export const anomalyDescriptions: { [key in AnomalyAlgorithm]: string } = {
   GMM: `
@@ -26,6 +25,8 @@ En la detección de anomalías, **GMM** modela la distribución subyacente de lo
 - **Dependencia de Parámetros:** La elección del número de árboles y la profundidad puede influir en el rendimiento.
 `,
 };
+
+export type ClusteringAlgorithm = 'GMM' | 'KMeans';
 
 export const clusteringDescriptions: { [key in ClusteringAlgorithm]: string } =
   {
@@ -54,3 +55,24 @@ En el contexto de Clustering, **GMM** modela la distribución de los datos y asi
 - **Necesidad de Predefinir K:** Requiere especificar el número de clusters de antemano, lo que puede ser difícil de determinar.
 `,
   };
+
+export type DensityDataset = 'iris' | 'housing';
+
+export const densityDescriptions: Record<DensityDataset, string> = {
+  iris: `
+El **Dataset de Iris** contiene **150 muestras** de flores con **4 características numéricas** (largo y ancho del sépalo y pétalo). 
+
+El **análisis de densidad** evalúa cómo se distribuyen los datos en el espacio, identificando regiones de **alta** y **baja concentración**.  
+En el dataset Iris:
+- Las regiones de **alta densidad** corresponden a una de las tres especies de flores.
+- Las zonas de **baja densidad** marcan las separaciones entre especies o puntos menos representativos.
+  `,
+  housing: `
+El **Dataset de California Housing** contiene información sobre precios de viviendas en California, como la cantidad de habitaciones y el ingreso promedio de los habitantes.
+
+El **análisis de densidad** evalúa cómo se distribuyen los datos en el espacio, identificando regiones de **alta** y **baja concentración**.  
+En este dataset:
+- Las regiones de **alta densidad** suelen representar propiedades con características comunes.
+- Las regiones de **baja densidad** corresponden a propiedades con valores extremos o atípicos.
+  `,
+};

@@ -1,8 +1,19 @@
-// src/components/AnomalyDetectionChart.tsx
-import * as d3 from 'd3';
-import React, { useEffect, useRef } from 'react';
+// src/components/Anomaly/AnomalyDetectionChart.tsx
+import 'react-loading-skeleton/dist/skeleton.css';
 
+import * as d3 from 'd3';
+import React, { useEffect, useRef, useState } from 'react';
+import Skeleton from 'react-loading-skeleton';
+
+import PRCurve from '@/components/Anomaly/PRCurve';
+import ROCCurve from '@/components/Anomaly/ROCCurve';
 import { useFetchAnomalyDetectionMutation } from '@/services/anomalyApi';
+import {
+  calculatePRCurve,
+  calculateROCCurve,
+  PRPoint,
+  ROCPoint,
+} from '@/utils/metrics';
 
 interface AnomalyDetectionChartProps {
   algorithm: 'GMM' | 'IsolationForest';
@@ -11,6 +22,8 @@ interface AnomalyDetectionChartProps {
   randomState: number;
   nSamples: number;
   nFeatures: number;
+  nEstimators?: number; // Solo para Isolation Forest
+  maxSamples?: string | number; // Solo para Isolation Forest
 }
 
 const AnomalyDetectionChart: React.FC<AnomalyDetectionChartProps> = ({
@@ -20,10 +33,16 @@ const AnomalyDetectionChart: React.FC<AnomalyDetectionChartProps> = ({
   randomState,
   nSamples,
   nFeatures,
+  nEstimators,
+  maxSamples,
 }) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [fetchAnomalyDetection, { data, isLoading, isError }] =
     useFetchAnomalyDetectionMutation();
+
+  // Estados para las curvas ROC y PR
+  const [rocData, setRocData] = useState<ROCPoint[]>([]);
+  const [prData, setPrData] = useState<PRPoint[]>([]);
 
   useEffect(() => {
     fetchAnomalyDetection({
@@ -33,6 +52,10 @@ const AnomalyDetectionChart: React.FC<AnomalyDetectionChartProps> = ({
       random_state: randomState,
       n_samples: nSamples,
       n_features: nFeatures,
+      ...(algorithm === 'IsolationForest' && {
+        n_estimators: nEstimators,
+        max_samples: maxSamples,
+      }),
     });
   }, [
     fetchAnomalyDetection,
@@ -42,10 +65,12 @@ const AnomalyDetectionChart: React.FC<AnomalyDetectionChartProps> = ({
     randomState,
     nSamples,
     nFeatures,
+    nEstimators,
+    maxSamples,
   ]);
 
   useEffect(() => {
-    if (data && svgRef.current && nFeatures === 2) {
+    if (data && svgRef.current) {
       const width = 800;
       const height = 600;
       const margin = { top: 50, right: 50, bottom: 70, left: 70 };
@@ -54,11 +79,14 @@ const AnomalyDetectionChart: React.FC<AnomalyDetectionChartProps> = ({
         x: point[0],
         y: point[1],
         isAnomaly: data.predictions[i],
+        trueLabel: data.labels_true[i] === -1 ? 'Anomalía' : 'Normal',
       }));
 
       const svg = d3.select(svgRef.current);
       svg.selectAll('*').remove();
-      svg.attr('width', width).attr('height', height);
+      svg
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .attr('preserveAspectRatio', 'xMidYMid meet');
 
       const xExtent = d3.extent(points, (d) => d.x) as [number, number];
       const yExtent = d3.extent(points, (d) => d.y) as [number, number];
@@ -96,7 +124,7 @@ const AnomalyDetectionChart: React.FC<AnomalyDetectionChartProps> = ({
         .on('mouseover', (event, d) => {
           tooltip.transition().duration(200).style('opacity', 0.9);
           tooltip
-            .html(`Normal`)
+            .html(`Predicción: Normal<br/>Etiqueta Verdadera: ${d.trueLabel}`)
             .style('left', event.pageX + 10 + 'px')
             .style('top', event.pageY - 28 + 'px');
         })
@@ -122,7 +150,7 @@ const AnomalyDetectionChart: React.FC<AnomalyDetectionChartProps> = ({
         .on('mouseover', (event, d) => {
           tooltip.transition().duration(200).style('opacity', 0.9);
           tooltip
-            .html(`Anomalía`)
+            .html(`Predicción: Anomalía<br/>Etiqueta Verdadera: ${d.trueLabel}`)
             .style('left', event.pageX + 10 + 'px')
             .style('top', event.pageY - 28 + 'px');
         })
@@ -135,6 +163,14 @@ const AnomalyDetectionChart: React.FC<AnomalyDetectionChartProps> = ({
           tooltip.transition().duration(500).style('opacity', 0);
         });
 
+      const labelsBoolean = data.labels_true.map((label) => label === -1);
+      // Calcular Curvas ROC y PR
+      const rocPoints = calculateROCCurve(data.scores, labelsBoolean);
+      const prPoints = calculatePRCurve(data.scores, labelsBoolean);
+
+      setRocData(rocPoints);
+      setPrData(prPoints);
+
       return () => {
         tooltip.remove();
       };
@@ -146,40 +182,67 @@ const AnomalyDetectionChart: React.FC<AnomalyDetectionChartProps> = ({
       <h2 className="text-xl font-bold mb-2">
         Detección de Anomalías con {algorithm}
       </h2>
-      {isLoading && (
-        <p className="text-blue-500">Cargando datos del modelo...</p>
-      )}
-      {isError && <p className="text-red-500">Error al cargar los datos.</p>}
-      {data && (
-        <div
-          className="mb-4"
-          style={{
-            height: '120px',
-            columnCount: 2,
-            columnGap: '1rem',
-            overflowY: 'auto',
-          }}
-        >
-          <p>
-            <strong>Precisión:</strong> {data.metrics.precision.toFixed(2)}
-          </p>
-          <p>
-            <strong>Recall:</strong> {data.metrics.recall.toFixed(2)}
-          </p>
-          <p>
-            <strong>F1 Score:</strong> {data.metrics.f1_score.toFixed(2)}
-          </p>
-          {data.metrics.roc_auc !== null && (
+      <div
+        style={{
+          height: '75px',
+          columnWidth: '200px',
+          columnGap: '1rem',
+          overflowY: 'auto',
+        }}
+      >
+        {isLoading ? (
+          <>
+            <Skeleton height={40} width={200} count={4} />
+          </>
+        ) : isError ? (
+          <p className="text-red-500">Error al cargar los datos.</p>
+        ) : data ? (
+          <>
             <p>
-              <strong>ROC AUC:</strong> {data.metrics.roc_auc.toFixed(2)}
+              <strong>Precisión:</strong> {data.metrics.precision.toFixed(2)}
             </p>
-          )}
-        </div>
-      )}
-      <svg
-        ref={svgRef}
-        className="border border-gray-300 place-self-center"
-      ></svg>
+            <p>
+              <strong>Recall:</strong> {data.metrics.recall.toFixed(2)}
+            </p>
+            <p>
+              <strong>F1 Score:</strong> {data.metrics.f1_score.toFixed(2)}
+            </p>
+            {data.metrics.roc_auc !== null && (
+              <p>
+                <strong>ROC AUC:</strong> {data.metrics.roc_auc.toFixed(2)}
+              </p>
+            )}
+          </>
+        ) : null}
+      </div>
+      {/* Sección del Gráfico */}
+      <div className="w-full">
+        {isLoading ? (
+          <div className="w-full h-full flex items-center justify-center border border-gray-300">
+            <Skeleton height={300} width="100%" />
+          </div>
+        ) : isError ? (
+          <p className="text-red-500">Error al cargar el gráfico.</p>
+        ) : (
+          <svg
+            ref={svgRef}
+            className="w-full h-full border border-gray-300"
+          ></svg>
+        )}
+      </div>
+      {/* Gráficos de Curva ROC y PR */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        {isLoading ? (
+          <Skeleton height={150} width="100%" />
+        ) : (
+          <ROCCurve data={rocData} />
+        )}
+        {isLoading ? (
+          <Skeleton height={150} width="100%" />
+        ) : (
+          <PRCurve data={prData} />
+        )}
+      </div>
     </div>
   );
 };
