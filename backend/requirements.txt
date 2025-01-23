@@ -5,3 +5,5 @@ pandas
 flask
 flask-cors
 Pillow
+scikit-image
+tensorflow

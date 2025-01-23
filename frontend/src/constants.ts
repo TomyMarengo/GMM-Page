@@ -76,3 +76,57 @@ En este dataset:
 - Las regiones de **baja densidad** corresponden a propiedades con valores extremos o atípicos.
   `,
 };
+
+export type SegmentationDataset = 'MNIST' | 'CIFAR10';
+
+export const segmentationDatasetDescription: Record<
+  SegmentationDataset,
+  string
+> = {
+  MNIST: `
+- Contiene imágenes en escala de grises de dígitos escritos a mano.
+- Cada imagen tiene una resolución de 28x28 píxeles.
+- Utilizado comúnmente para tareas de clasificación y segmentación en visión por computadora.
+- Ejemplo: Identificación de regiones en un dígito o separación de ruido en los bordes del dígito.
+`,
+  CIFAR10: `
+- Contiene imágenes a color clasificadas en 10 categorías, como animales y vehículos.
+- Cada imagen tiene una resolución de 32x32 píxeles.
+- Utilizado para tareas más complejas debido a la variedad y riqueza de las clases.
+- Ejemplo: Segmentación de regiones específicas en imágenes de objetos como automóviles o pájaros.
+`,
+};
+
+export type SegmentationAlgorithm = 'GMM' | 'KMeans';
+
+export const segmentationAlgorithmDescription: Record<
+  SegmentationAlgorithm,
+  string
+> = {
+  KMeans: `
+**KMeans para Segmentación**
+
+Agrupa píxeles en **K clusters** basándose en color o intensidad. Ideal para separar regiones de color uniforme o bordes claros.
+
+**Ventajas**:
+  - Rápido y fácil de implementar.
+  - Funciona bien en imágenes con regiones claramente diferenciadas.
+
+**Desventajas**:
+  - Sensible a la inicialización y ruido.
+  - No adecuado para distribuciones complejas.
+`,
+  GMM: `
+**GMM para Segmentación**
+
+Modela los píxeles con distribuciones gaussianas para clasificar regiones. Útil para imágenes con transiciones suaves o ruido.
+
+**Ventajas**:
+  - Captura distribuciones complejas.
+  - Proporciona una segmentación probabilística.
+
+**Desventajas**:
+  - Computacionalmente más costoso que KMeans.
+  - Requiere una estimación adecuada del número de clusters.
+`,
+};

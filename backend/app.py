@@ -1,11 +1,14 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-from sklearn import datasets
 from sklearn.decomposition import PCA
 from sklearn.mixture import GaussianMixture
 from sklearn.cluster import KMeans
 from sklearn.ensemble import IsolationForest
 from sklearn.datasets import make_blobs
+from sklearn.datasets import fetch_openml
+from skimage import io, color
+from PIL import Image
+from skimage.transform import resize
 from sklearn.metrics import (
     silhouette_score,
     calinski_harabasz_score,
@@ -19,6 +22,10 @@ from sklearn.metrics import (
 
 import pandas as pd
 import numpy as np
+import os
+import ssl
+
+ssl._create_default_https_context = ssl._create_unverified_context
 
 app = Flask(__name__)
 CORS(app)
@@ -335,6 +342,104 @@ def density_modeling():
         "aic": gmm.aic(features),
         "converged": gmm.converged_,
         "feature_names": feature_names,
+    }
+    return jsonify(response)
+
+@app.route('/<path:filename>')
+def serve_static(filename):
+    return send_from_directory('./', filename)
+
+@app.route('/datasets/mnist', methods=['GET'])
+def get_mnist_images():
+    from tensorflow.keras.datasets import mnist
+    (x_train, y_train), (_, _) = mnist.load_data()
+
+    dataset_dir = "./datasets/mnist"
+    os.makedirs(dataset_dir, exist_ok=True)
+
+    image_files = []
+    for i, img_array in enumerate(x_train[:20]):
+        img_path = os.path.join(dataset_dir, f"mnist_{i}.png")
+        img = Image.fromarray(img_array)
+        img.save(img_path)
+        image_files.append({
+            "url": f"http://localhost:5000/datasets/mnist/mnist_{i}.png",
+            "label": int(y_train[i])
+        })
+
+    return jsonify(image_files)
+
+@app.route('/datasets/cifar10', methods=['GET'])
+def get_cifar10_images():
+    from tensorflow.keras.datasets import cifar10
+    (x_train, y_train), _ = cifar10.load_data()
+
+    dataset_dir = "./datasets/cifar10"
+    os.makedirs(dataset_dir, exist_ok=True)
+
+    image_files = []
+    for i, img_array in enumerate(x_train[:20]):  # Limitamos a 20 imágenes para demo
+        img_path = os.path.join(dataset_dir, f"cifar10_{i}.png")
+        img = Image.fromarray(img_array)
+        img.save(img_path)
+        image_files.append({
+            "url": f"http://localhost:5000/datasets/cifar10/cifar10_{i}.png",
+            "label": int(y_train[i][0])
+        })
+    
+    return jsonify(image_files)
+
+@app.route('/segment', methods=['POST'])
+def segment_image():
+    """
+    Endpoint para segmentar imágenes usando GMM o KMeans.
+    """
+    req_data = request.get_json()
+    algorithm = req_data.get('algorithm', 'GMM')  # GMM o KMeans
+    n_components = req_data.get('n_components', 3)  # Número de clusters
+    image_url = req_data.get('image_url')          # URL de la imagen
+    resize_shape = req_data.get('resize_shape', (256, 256))  # Tamaño de redimensionado
+
+    if not image_url:
+        return jsonify({"error": "Se requiere una URL de la imagen"}), 400
+
+    # Cargar y procesar la imagen
+    # Cargar y procesar la imagen
+    try:
+        image = io.imread(image_url)
+        image = resize(image, resize_shape, anti_aliasing=True)
+
+        # Asegurarse de que la imagen tenga 3 canales (RGB)
+        if len(image.shape) == 2:  # Escala de grises
+            image = np.stack((image,)*3, axis=-1)
+
+        image_lab = color.rgb2lab(image)  # Convertir a LAB para mejor segmentación
+        flat_image = image_lab.reshape((-1, 3))
+    except Exception as e:
+        return jsonify({"error": f"Error al procesar la imagen: {str(e)}"}), 400
+
+    if algorithm == 'GMM':
+        model = GaussianMixture(n_components=n_components, random_state=42)
+        model.fit(flat_image)
+        labels = model.predict(flat_image)
+        cluster_centers = model.means_
+    elif algorithm == 'KMeans':
+        model = KMeans(n_clusters=n_components, random_state=42)
+        model.fit(flat_image)
+        labels = model.labels_
+        cluster_centers = model.cluster_centers_
+    else:
+        return jsonify({"error": "Algoritmo no soportado. Use 'GMM' o 'KMeans'."}), 400
+
+    # Reconstruir la imagen segmentada
+    segmented_image = cluster_centers[labels].reshape(image_lab.shape)
+    segmented_image_rgb = color.lab2rgb(segmented_image)
+
+    response = {
+        "segmented_image": segmented_image_rgb.tolist(),
+        "labels": labels.reshape(resize_shape[:2]).tolist(),
+        "cluster_centers": cluster_centers.tolist(),
+        "algorithm": algorithm
     }
     return jsonify(response)
 
