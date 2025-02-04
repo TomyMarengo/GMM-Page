@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS
 from sklearn.decomposition import PCA
 from sklearn.mixture import GaussianMixture
@@ -25,10 +25,16 @@ import numpy as np
 import os
 import ssl
 
+import matplotlib.pyplot as plt
+
+import io
+import zipfile
+
 ssl._create_default_https_context = ssl._create_unverified_context
 
 app = Flask(__name__)
 CORS(app)
+
 
 @app.route('/cluster', methods=['POST'])
 def cluster():
@@ -37,12 +43,18 @@ def cluster():
     Si se recibe n_features mayor que 2, se aplica PCA para reducir a 2 componentes.
     """
     req_data = request.get_json()
-    n_centers = req_data.get('n_centers', 3)       # Número de centros para blobs
-    n_components = req_data.get('n_components', 3)         # Número de clusters para GMM
-    random_state = req_data.get('random_state', 42)          # Semilla para reproducibilidad
-    covariance_type = req_data.get('covariance_type', 'full')  # Tipo de covarianza
-    n_samples = req_data.get('n_samples', 150)               # Número de puntos del dataset
-    n_features = req_data.get('n_features', 2)               # Dimensiones del dataset
+    # Número de centros para blobs
+    n_centers = req_data.get('n_centers', 3)
+    # Número de clusters para GMM
+    n_components = req_data.get('n_components', 3)
+    # Semilla para reproducibilidad
+    random_state = req_data.get('random_state', 42)
+    covariance_type = req_data.get(
+        'covariance_type', 'full')  # Tipo de covarianza
+    # Número de puntos del dataset
+    n_samples = req_data.get('n_samples', 150)
+    # Dimensiones del dataset
+    n_features = req_data.get('n_features', 2)
 
     # Generar un dataset con blobs
     data, labels_true = make_blobs(
@@ -56,7 +68,8 @@ def cluster():
         n_features = 2  # Ahora trabajamos en 2 dimensiones
 
     # Ajustar el modelo GMM al dataset generado (en 2D si se aplicó PCA)
-    gmm = GaussianMixture(n_components=n_components, random_state=random_state, covariance_type=covariance_type)
+    gmm = GaussianMixture(n_components=n_components,
+                          random_state=random_state, covariance_type=covariance_type)
     gmm.fit(data)
 
     clusters = gmm.predict(data).tolist()
@@ -69,14 +82,17 @@ def cluster():
 
     if covariance_type == "diag":
         for cov in raw_covariances:
-            cov_matrix = [[cov[i] if i == j else 0 for j in range(n_features)] for i in range(n_features)]
+            cov_matrix = [[cov[i] if i == j else 0 for j in range(
+                n_features)] for i in range(n_features)]
             covariances.append(cov_matrix)
     elif covariance_type == "spherical":
         for cov in raw_covariances:
-            cov_matrix = [[cov if i == j else 0 for j in range(n_features)] for i in range(n_features)]
+            cov_matrix = [[cov if i == j else 0 for j in range(
+                n_features)] for i in range(n_features)]
             covariances.append(cov_matrix)
     elif covariance_type == "tied":
-        cov_matrix = raw_covariances.tolist() if hasattr(raw_covariances, "tolist") else raw_covariances
+        cov_matrix = raw_covariances.tolist() if hasattr(
+            raw_covariances, "tolist") else raw_covariances
         covariances = [cov_matrix for _ in range(n_components)]
     else:  # full
         for cov in raw_covariances:
@@ -125,6 +141,7 @@ def cluster():
     }
     return jsonify(response)
 
+
 @app.route('/kmeans', methods=['POST'])
 def kmeans_cluster():
     """
@@ -133,7 +150,8 @@ def kmeans_cluster():
     """
     req_data = request.get_json()
     n_centers = req_data.get('n_centers', 3)
-    n_clusters = req_data.get('n_clusters', 3)       # Número de clusters para KMeans
+    # Número de clusters para KMeans
+    n_clusters = req_data.get('n_clusters', 3)
     random_state = req_data.get('random_state', 42)    # Semilla
     n_samples = req_data.get('n_samples', 150)         # Número de puntos
     n_features = req_data.get('n_features', 2)         # Dimensiones
@@ -189,6 +207,7 @@ def kmeans_cluster():
     }
     return jsonify(response)
 
+
 @app.route('/anomaly', methods=['POST'])
 def anomaly_detection():
     """
@@ -197,15 +216,18 @@ def anomaly_detection():
     """
     req_data = request.get_json()
     algorithm = req_data.get('algorithm', 'GMM')  # 'GMM' o 'IsolationForest'
-    contamination = req_data.get('contamination', 0.05)  # Proporción de anomalías
+    contamination = req_data.get(
+        'contamination', 0.05)  # Proporción de anomalías
     n_components = req_data.get('n_components', 3)  # Solo para GMM
     random_state = req_data.get('random_state', 42)
     n_samples = req_data.get('n_samples', 150)
     n_features = req_data.get('n_features', 2)
-    
+
     # Parámetros adicionales para Isolation Forest
-    n_estimators = req_data.get('n_estimators', 100)  # Solo para Isolation Forest
-    max_samples = req_data.get('max_samples', 'auto')  # Solo para Isolation Forest
+    # Solo para Isolation Forest
+    n_estimators = req_data.get('n_estimators', 100)
+    # Solo para Isolation Forest
+    max_samples = req_data.get('max_samples', 'auto')
 
     if isinstance(max_samples, str):
         if max_samples.lower() == 'auto':
@@ -222,27 +244,30 @@ def anomaly_detection():
         pass
     else:
         return jsonify({"error": "max_samples debe ser 'auto' o un número válido"}), 400
-    
+
     # Generar dataset con blobs y algunas anomalías
     data, labels_true = make_blobs(
         n_samples=n_samples, centers=3, n_features=n_features, random_state=random_state
     )
-    
+
     # Introducir anomalías
     n_anomalies = int(contamination * n_samples)
     np.random.seed(random_state)
-    anomalies = np.random.uniform(low=-10, high=10, size=(n_anomalies, n_features))
+    anomalies = np.random.uniform(
+        low=-10, high=10, size=(n_anomalies, n_features))
     data = np.vstack([data, anomalies])
-    labels_true = np.hstack([labels_true, [-1]*n_anomalies])  # -1 para anomalías
-    
+    labels_true = np.hstack(
+        [labels_true, [-1]*n_anomalies])  # -1 para anomalías
+
     # Si se reciben más de 2 features, aplicar PCA para reducir a 2 componentes.
     if n_features > 2:
         pca = PCA(n_components=2, random_state=random_state)
         data = pca.fit_transform(data)
         n_features = 2
-    
+
     if algorithm == 'GMM':
-        model = GaussianMixture(n_components=n_components, random_state=random_state)
+        model = GaussianMixture(n_components=n_components,
+                                random_state=random_state)
         model.fit(data)
         scores = model.score_samples(data)  # Puntuaciones de GMM
         # Calcular umbral basado en la contaminación
@@ -256,23 +281,26 @@ def anomaly_detection():
             max_samples=max_samples
         )
         model.fit(data)
-        scores = model.decision_function(data)  # Puntuaciones de Isolation Forest
+        # Puntuaciones de Isolation Forest
+        scores = model.decision_function(data)
         predictions = model.predict(data) == -1  # True para anomalías
     else:
         return jsonify({"error": "Algoritmo no soportado"}), 400
-    
+
     # Métricas de evaluación
     y_true = labels_true == -1
     y_pred = predictions
-    
+
     precision = precision_score(y_true, y_pred, zero_division=0)
     recall = recall_score(y_true, y_pred, zero_division=0)
     f1 = f1_score(y_true, y_pred, zero_division=0)
     try:
-        roc_auc = roc_auc_score(y_true, scores if algorithm == 'GMM' else -scores)  # Invertir scores para Isolation Forest
+        # Invertir scores para Isolation Forest
+        roc_auc = roc_auc_score(
+            y_true, scores if algorithm == 'GMM' else -scores)
     except:
         roc_auc = None
-    
+
     response = {
         "algorithm": algorithm,
         "contamination": contamination,
@@ -287,8 +315,9 @@ def anomaly_detection():
         "labels_true": labels_true.tolist(),
         "scores": scores.tolist(),  # Añadido
     }
-    
+
     return jsonify(response)
+
 
 @app.route('/density', methods=['POST'])
 def density_modeling():
@@ -298,8 +327,10 @@ def density_modeling():
     """
     req_data = request.get_json()
     n_components = req_data.get('n_components', 3)  # Número de componentes GMM
-    random_state = req_data.get('random_state', 42)  # Semilla para reproducibilidad
-    covariance_type = req_data.get('covariance_type', 'full')  # Tipo de covarianza
+    # Semilla para reproducibilidad
+    random_state = req_data.get('random_state', 42)
+    covariance_type = req_data.get(
+        'covariance_type', 'full')  # Tipo de covarianza
     dataset_name = req_data.get('dataset', 'iris')  # Dataset para análisis
 
     # Seleccionar dataset
@@ -325,7 +356,8 @@ def density_modeling():
         features = pca.fit_transform(features)
 
     # Ajustar el modelo GMM
-    gmm = GaussianMixture(n_components=n_components, random_state=random_state, covariance_type=covariance_type)
+    gmm = GaussianMixture(n_components=n_components,
+                          random_state=random_state, covariance_type=covariance_type)
     gmm.fit(features)
 
     density = np.exp(gmm.score_samples(features))  # Calcular la densidad
@@ -345,9 +377,11 @@ def density_modeling():
     }
     return jsonify(response)
 
+
 @app.route('/<path:filename>')
 def serve_static(filename):
     return send_from_directory('./', filename)
+
 
 @app.route('/datasets/iris', methods=['GET'])
 def get_iris_data():
@@ -357,13 +391,14 @@ def get_iris_data():
     feature_names = iris.feature_names
     target = iris.target.tolist()
     target_names = iris.target_names.tolist()
-    
+
     return jsonify({
         "data": data,
         "feature_names": feature_names,
         "target": target,
         "target_names": target_names
     })
+
 
 @app.route('/datasets/mnist', methods=['GET'])
 def get_mnist_images():
@@ -385,6 +420,7 @@ def get_mnist_images():
 
     return jsonify(image_files)
 
+
 @app.route('/datasets/cifar10', methods=['GET'])
 def get_cifar10_images():
     from tensorflow.keras.datasets import cifar10
@@ -394,7 +430,8 @@ def get_cifar10_images():
     os.makedirs(dataset_dir, exist_ok=True)
 
     image_files = []
-    for i, img_array in enumerate(x_train[:20]):  # Limitamos a 20 imágenes para demo
+    # Limitamos a 20 imágenes para demo
+    for i, img_array in enumerate(x_train[:20]):
         img_path = os.path.join(dataset_dir, f"cifar10_{i}.png")
         img = Image.fromarray(img_array)
         img.save(img_path)
@@ -402,8 +439,9 @@ def get_cifar10_images():
             "url": f"http://localhost:5000/datasets/cifar10/cifar10_{i}.png",
             "label": int(y_train[i][0])
         })
-    
+
     return jsonify(image_files)
+
 
 @app.route('/segment', methods=['POST'])
 def segment_image():
@@ -413,7 +451,8 @@ def segment_image():
     """
     algorithm = request.form.get('algorithm', 'GMM')  # 'GMM' o 'KMeans'
     n_components = request.form.get('n_components', 3)  # Número de clusters
-    resize_shape = request.form.get('resize_shape', '256,256')  # Tamaño de redimensionado
+    resize_shape = request.form.get(
+        'resize_shape', '256,256')  # Tamaño de redimensionado
     try:
         n_components = int(n_components)
     except ValueError:
@@ -421,7 +460,8 @@ def segment_image():
 
     # Procesar resize_shape
     try:
-        resize_shape = tuple(map(int, resize_shape.split(',')))  # (ancho, alto)
+        resize_shape = tuple(
+            map(int, resize_shape.split(',')))  # (ancho, alto)
         if len(resize_shape) != 2:
             raise ValueError
     except ValueError:
@@ -499,6 +539,82 @@ def segment_image():
         "algorithm": algorithm
     }
     return jsonify(response)
+
+
+def preprocess_images(image_files, image_size=(300, 300)):
+    images = []
+    for file in image_files:
+        image = Image.open(file)
+        image = np.array(image)
+        image_resized = resize(image, image_size, anti_aliasing=True)
+        images.append(image_resized)
+    return np.array(images)
+
+
+@app.route('/train', methods=['POST'])
+def train():
+    if 'train_images' not in request.files:
+        return jsonify({'error': 'No training images provided'}), 400
+
+    # Get the number of clusters from the form (default is 2)
+    n_clusters = int(request.form.get('n_clusters', 2))
+
+    zip_file = request.files['train_images']
+    with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+        image_files = [io.BytesIO(zip_ref.read(name)) for name in zip_ref.namelist(
+        ) if name.endswith(('jpg', 'jpeg', 'png', 'webp'))]
+
+    images = preprocess_images(image_files)
+    pixel_data = images.reshape(-1, 3)
+
+    global kmeans, gmm
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+    gmm = GaussianMixture(n_components=n_clusters, random_state=42)
+
+    kmeans.fit(pixel_data)
+    gmm.fit(pixel_data)
+
+    return jsonify({'message': f'Model trained successfully with {n_clusters} clusters.'})
+
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    if 'image' not in request.files:
+        return jsonify({'error': 'No image provided'}), 400
+
+    image_file = request.files['image']
+    image = Image.open(image_file)
+    image_resized = resize(np.array(image), (300, 300), anti_aliasing=True)
+    final_pixel_data = image_resized.reshape(-1, 3)
+
+    kmeans_test_labels = kmeans.predict(final_pixel_data)
+    gmm_test_labels = gmm.predict(final_pixel_data)
+
+    kmeans_segmented = kmeans.cluster_centers_[
+        kmeans_test_labels].reshape(image_resized.shape)
+    gmm_segmented = gmm.means_[gmm_test_labels].reshape(image_resized.shape)
+
+    # Plot the results
+    fig, axes = plt.subplots(1, 3, figsize=(12, 6))
+    axes[0].imshow(image_resized)
+    axes[0].set_title("Original Test Image")
+    axes[0].axis('off')
+
+    axes[1].imshow(kmeans_segmented)
+    axes[1].set_title("KMeans Segmentation")
+    axes[1].axis('off')
+
+    axes[2].imshow(gmm_segmented)
+    axes[2].set_title("GMM Segmentation")
+    axes[2].axis('off')
+
+    plt.tight_layout()
+    output = io.BytesIO()
+    plt.savefig(output, format='png')
+    output.seek(0)
+
+    return send_file(output, mimetype='image/png')
+
 
 if __name__ == '__main__':
     app.run(debug=True)

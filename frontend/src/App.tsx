@@ -9,6 +9,7 @@ import ClusteringPage from '@/pages/ClusteringPage';
 import DensityPage from '@/pages/DensityPage';
 import HomePage from '@/pages/HomePage';
 import SegmentationPage from '@/pages/SegmentationPage';
+import SegmentationUploadPage from '@/pages/SegmentationUploadPage';
 
 const App: React.FC = () => {
   const menuItems = [
@@ -21,6 +22,11 @@ const App: React.FC = () => {
       label: 'Segmentación de Imágenes',
       path: '/segmentation',
     },
+    {
+      key: 'segmentation-upload',
+      label: 'Segmentación Upload',
+      path: '/segmentation-upload',
+    },
   ];
 
   const renderContent = () => {
@@ -31,6 +37,10 @@ const App: React.FC = () => {
         <Route path="/anomalies" element={<AnomalyPage />} />
         <Route path="/density" element={<DensityPage />} />
         <Route path="/segmentation" element={<SegmentationPage />} />
+        <Route
+          path="/segmentation-upload"
+          element={<SegmentationUploadPage />}
+        />
         <Route path="*" element={<div>Pagina no encontrada</div>} />
       </Routes>
     );

@@ -77,7 +77,11 @@ En este dataset:
   `,
 };
 
-export type SegmentationDataset = 'MNIST' | 'CIFAR10' | 'Upload';
+export type SegmentationDataset =
+  | 'MNIST'
+  | 'CIFAR10'
+  | 'Upload'
+  | 'Upload many';
 
 export const segmentationDatasetDescription: Record<
   SegmentationDataset,
@@ -96,6 +100,12 @@ export const segmentationDatasetDescription: Record<
 - Ejemplo: Segmentación de regiones específicas en imágenes de objetos como automóviles o pájaros.
 `,
   Upload: `
+- Sube tu propia imagen para realizar segmentación.
+- Asegúrate de que la imagen sea clara y tenga un tamaño razonable.
+- La segmentación puede ayudar a identificar regiones de interés o separar objetos del fondo.
+- Ejemplo: Segmentación de una imagen de paisaje para aislar el cielo, el agua y la tierra.
+`,
+  'Upload many': `
 - Sube tu propia imagen para realizar segmentación.
 - Asegúrate de que la imagen sea clara y tenga un tamaño razonable.
 - La segmentación puede ayudar a identificar regiones de interés o separar objetos del fondo.
