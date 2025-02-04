@@ -29,6 +29,7 @@ import matplotlib.pyplot as plt
 
 import io
 import zipfile
+import pickle
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -541,6 +542,11 @@ def segment_image():
     return jsonify(response)
 
 
+# Global variables to hold the models
+g_kmeans = None
+g_gmm = None
+
+
 def preprocess_images(image_files, image_size=(300, 300)):
     images = []
     for file in image_files:
@@ -561,24 +567,30 @@ def train():
 
     zip_file = request.files['train_images']
     with zipfile.ZipFile(zip_file, 'r') as zip_ref:
-        image_files = [io.BytesIO(zip_ref.read(name)) for name in zip_ref.namelist(
-        ) if name.endswith(('jpg', 'jpeg', 'png', 'webp'))]
+        image_files = [
+            io.BytesIO(zip_ref.read(name))
+            for name in zip_ref.namelist() if name.lower().endswith(('jpg', 'jpeg', 'png', 'webp'))
+        ]
 
     images = preprocess_images(image_files)
     pixel_data = images.reshape(-1, 3)
 
-    global kmeans, gmm
-    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-    gmm = GaussianMixture(n_components=n_clusters, random_state=42)
+    global g_kmeans, g_gmm
+    g_kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+    g_gmm = GaussianMixture(n_components=n_clusters, random_state=42)
 
-    kmeans.fit(pixel_data)
-    gmm.fit(pixel_data)
+    g_kmeans.fit(pixel_data)
+    g_gmm.fit(pixel_data)
 
     return jsonify({'message': f'Model trained successfully with {n_clusters} clusters.'})
 
 
 @app.route('/predict', methods=['POST'])
 def predict():
+    global g_kmeans, g_gmm
+    if g_kmeans is None or g_gmm is None:
+        return jsonify({'error': 'Model is not trained or loaded.'}), 400
+
     if 'image' not in request.files:
         return jsonify({'error': 'No image provided'}), 400
 
@@ -587,12 +599,12 @@ def predict():
     image_resized = resize(np.array(image), (300, 300), anti_aliasing=True)
     final_pixel_data = image_resized.reshape(-1, 3)
 
-    kmeans_test_labels = kmeans.predict(final_pixel_data)
-    gmm_test_labels = gmm.predict(final_pixel_data)
+    kmeans_test_labels = g_kmeans.predict(final_pixel_data)
+    gmm_test_labels = g_gmm.predict(final_pixel_data)
 
-    kmeans_segmented = kmeans.cluster_centers_[
+    kmeans_segmented = g_kmeans.cluster_centers_[
         kmeans_test_labels].reshape(image_resized.shape)
-    gmm_segmented = gmm.means_[gmm_test_labels].reshape(image_resized.shape)
+    gmm_segmented = g_gmm.means_[gmm_test_labels].reshape(image_resized.shape)
 
     # Plot the results
     fig, axes = plt.subplots(1, 3, figsize=(12, 6))
@@ -612,8 +624,41 @@ def predict():
     output = io.BytesIO()
     plt.savefig(output, format='png')
     output.seek(0)
+    plt.close(fig)  # close the figure to free memory
 
     return send_file(output, mimetype='image/png')
+
+
+@app.route('/upload_model', methods=['POST'])
+def upload_model():
+    global g_kmeans, g_gmm
+    if 'model_file' not in request.files:
+        return jsonify({'error': 'No model file provided'}), 400
+
+    model_file = request.files['model_file']
+    try:
+        loaded_models = pickle.load(model_file)
+        g_kmeans = loaded_models.get('kmeans', None)
+        g_gmm = loaded_models.get('gmm', None)
+    except Exception as e:
+        return jsonify({'error': f'Failed to load model: {str(e)}'}), 500
+
+    return jsonify({'message': 'Model loaded successfully.'})
+
+
+@app.route('/download_model', methods=['GET'])
+def download_model():
+    global g_kmeans, g_gmm
+    if g_kmeans is None or g_gmm is None:
+        return jsonify({'error': 'No model is available to download.'}), 400
+
+    # Combine the models into a dictionary and pickle them
+    model_data = {'kmeans': g_kmeans, 'gmm': g_gmm}
+    output = io.BytesIO()
+    pickle.dump(model_data, output)
+    output.seek(0)
+
+    return send_file(output, mimetype='application/octet-stream', as_attachment=True, download_name='model.pkl')
 
 
 if __name__ == '__main__':

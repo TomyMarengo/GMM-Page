@@ -7,3 +7,4 @@ flask-cors
 Pillow
 scikit-image
 tensorflow
+pickle

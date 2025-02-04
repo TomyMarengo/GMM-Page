@@ -4,11 +4,18 @@ import React, { useState } from 'react';
 const SegmentationUploadPage: React.FC = () => {
   const [trainingFiles, setTrainingFiles] = useState<FileList | null>(null);
   const [predictionFile, setPredictionFile] = useState<File | null>(null);
+  const [modelFile, setModelFile] = useState<File | null>(null);
   const [predictionImage, setPredictionImage] = useState<string | null>(null);
   const [message, setMessage] = useState<string>('');
+  const [modelMessage, setModelMessage] = useState<string>('');
   const [nClusters, setNClusters] = useState<number>(2);
   const [isLoadingTrain, setIsLoadingTrain] = useState<boolean>(false);
   const [isLoadingPredict, setIsLoadingPredict] = useState<boolean>(false);
+  const [isLoadingModelUpload, setIsLoadingModelUpload] =
+    useState<boolean>(false);
+  const [isLoadingModelDownload, setIsLoadingModelDownload] =
+    useState<boolean>(false);
+  const [isModelTrained, setIsModelTrained] = useState<boolean>(false);
 
   const handleTrainingFilesChange = (
     e: React.ChangeEvent<HTMLInputElement>
@@ -24,6 +31,12 @@ const SegmentationUploadPage: React.FC = () => {
     }
   };
 
+  const handleModelFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setModelFile(e.target.files[0]);
+    }
+  };
+
   const handleClustersChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNClusters(Number(e.target.value));
   };
@@ -34,8 +47,8 @@ const SegmentationUploadPage: React.FC = () => {
       alert('Please select training images');
       return;
     }
-
     setIsLoadingTrain(true);
+
     // Create a zip file of the training images using JSZip
     const zip = new JSZip();
     const folder = zip.folder('images');
@@ -58,9 +71,12 @@ const SegmentationUploadPage: React.FC = () => {
       });
       const data = await response.json();
       setMessage(data.message);
+      // Assume success if no error is returned
+      setIsModelTrained(true);
     } catch (error) {
       console.error('Error during training:', error);
       setMessage('Error during training.');
+      setIsModelTrained(false);
     } finally {
       setIsLoadingTrain(false);
     }
@@ -72,7 +88,6 @@ const SegmentationUploadPage: React.FC = () => {
       alert('Please select an image to predict');
       return;
     }
-
     setIsLoadingPredict(true);
     const formData = new FormData();
     formData.append('image', predictionFile);
@@ -90,6 +105,57 @@ const SegmentationUploadPage: React.FC = () => {
       console.error('Error during prediction:', error);
     } finally {
       setIsLoadingPredict(false);
+    }
+  };
+
+  const handleModelUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!modelFile) {
+      alert('Please select a model file to upload');
+      return;
+    }
+    setIsLoadingModelUpload(true);
+    const formData = new FormData();
+    formData.append('model_file', modelFile);
+
+    try {
+      const response = await fetch('http://localhost:5000/upload_model', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+      setModelMessage(data.message);
+      // If model was loaded successfully, consider the model as trained
+      setIsModelTrained(true);
+    } catch (error) {
+      console.error('Error during model upload:', error);
+      setModelMessage('Error during model upload.');
+    } finally {
+      setIsLoadingModelUpload(false);
+    }
+  };
+
+  const handleModelDownload = async () => {
+    setIsLoadingModelDownload(true);
+    try {
+      const response = await fetch('http://localhost:5000/download_model', {
+        method: 'GET',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to download model');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'model.pkl';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (error) {
+      console.error('Error during model download:', error);
+    } finally {
+      setIsLoadingModelDownload(false);
     }
   };
 
@@ -145,10 +211,71 @@ const SegmentationUploadPage: React.FC = () => {
         {message && (
           <p className="mt-4 text-green-600 font-medium">{message}</p>
         )}
+
+        {/* Model Download Section */}
+        {isModelTrained && (
+          <div className="bg-white shadow-md rounded-lg p-6">
+            <h2 className="text-2xl font-semibold mb-4">
+              Download Trained Model
+            </h2>
+            <button
+              onClick={handleModelDownload}
+              className="bg-orange-600 text-white py-2 px-4 rounded hover:bg-orange-700 transition-colors"
+              disabled={isLoadingModelDownload}
+            >
+              {isLoadingModelDownload ? (
+                <div className="flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-t-2 border-gray-200 rounded-full animate-spin mr-2" />
+                  Downloading...
+                </div>
+              ) : (
+                'Download Model'
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Model Upload Section */}
+      <div className="bg-white shadow-md rounded-lg p-6 mb-8">
+        <h2 className="text-2xl font-semibold mb-4">Upload Trained Model</h2>
+        <form
+          onSubmit={handleModelUploadSubmit}
+          className="flex flex-col gap-4"
+        >
+          <div>
+            <label className="block text-gray-700 font-medium mb-2">
+              Select Model File (.pkl):
+            </label>
+            <input
+              type="file"
+              accept=".pkl"
+              onChange={handleModelFileChange}
+              className="border border-gray-300 p-2 rounded"
+            />
+          </div>
+          <button
+            type="submit"
+            className="bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700 transition-colors"
+            disabled={isLoadingModelUpload}
+          >
+            {isLoadingModelUpload ? (
+              <div className="flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-t-2 border-gray-200 rounded-full animate-spin mr-2" />
+                Uploading...
+              </div>
+            ) : (
+              'Upload Model'
+            )}
+          </button>
+        </form>
+        {modelMessage && (
+          <p className="mt-4 text-green-600 font-medium">{modelMessage}</p>
+        )}
       </div>
 
       {/* Prediction Section */}
-      <div className="bg-white shadow-md rounded-lg p-6">
+      <div className="bg-white shadow-md rounded-lg p-6 mb-8">
         <h2 className="text-2xl font-semibold mb-4">Predict Segmentation</h2>
         <form onSubmit={handlePredictSubmit} className="flex flex-col gap-4">
           <div>
