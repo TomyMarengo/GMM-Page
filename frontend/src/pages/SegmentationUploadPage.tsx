@@ -17,6 +17,8 @@ const SegmentationUploadPage: React.FC = () => {
     useState<boolean>(false);
   const [isModelTrained, setIsModelTrained] = useState<boolean>(false);
 
+  const API_URL = process.env.REACT_APP_API_URL;
+
   const handleTrainingFilesChange = (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -65,7 +67,7 @@ const SegmentationUploadPage: React.FC = () => {
     formData.append('n_clusters', nClusters.toString());
 
     try {
-      const response = await fetch('http://localhost:5000/train', {
+      const response = await fetch(`${API_URL}/train`, {
         method: 'POST',
         body: formData,
       });
@@ -93,7 +95,7 @@ const SegmentationUploadPage: React.FC = () => {
     formData.append('image', predictionFile);
 
     try {
-      const response = await fetch('http://localhost:5000/predict', {
+      const response = await fetch(`${API_URL}/predict`, {
         method: 'POST',
         body: formData,
       });
@@ -119,7 +121,7 @@ const SegmentationUploadPage: React.FC = () => {
     formData.append('model_file', modelFile);
 
     try {
-      const response = await fetch('http://localhost:5000/upload_model', {
+      const response = await fetch(`${API_URL}/upload_model`, {
         method: 'POST',
         body: formData,
       });
@@ -138,7 +140,7 @@ const SegmentationUploadPage: React.FC = () => {
   const handleModelDownload = async () => {
     setIsLoadingModelDownload(true);
     try {
-      const response = await fetch('http://localhost:5000/download_model', {
+      const response = await fetch(`${API_URL}/download_model`, {
         method: 'GET',
       });
       if (!response.ok) {

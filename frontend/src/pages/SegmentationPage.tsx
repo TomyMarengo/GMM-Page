@@ -31,6 +31,8 @@ const SegmentationPage: React.FC = () => {
   >([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  const API_URL = process.env.REACT_APP_API_URL;
+
   useEffect(() => {
     if (selectedDataset === 'Upload') {
       setIsLoading(false);
@@ -39,8 +41,8 @@ const SegmentationPage: React.FC = () => {
 
     setIsLoading(true);
     Promise.all([
-      axios.get('http://localhost:5000/datasets/mnist'),
-      axios.get('http://localhost:5000/datasets/cifar10'),
+      axios.get(`${API_URL}/datasets/mnist`),
+      axios.get(`${API_URL}/datasets/cifar10`),
     ])
       .then(([mnistResponse, cifarResponse]) => {
         setMnistImages(mnistResponse.data);

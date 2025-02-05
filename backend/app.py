@@ -37,6 +37,10 @@ app = Flask(__name__)
 CORS(app)
 
 
+@app.route('/dummy', methods=['GET'])
+def dummy():
+    return jsonify({"message": "Hello, World!"})
+
 @app.route('/cluster', methods=['POST'])
 def cluster():
     """
@@ -662,4 +666,4 @@ def download_model():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
